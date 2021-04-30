@@ -73,8 +73,12 @@ class Sprites(Dataset):
         np_file = 'sprites_{}_{}.npz'.format(n, canvas_size)
         full_path = os.path.join(directory, np_file)
         if not os.path.isfile(full_path):
+            try:
+                os.mkdir('./data')
+            except:
+                print("data folder found !")
             gen_data = make_sprites(n, canvas_size, canvas_size)
-            np.savez(np_file, **gen_data)
+            np.savez(full_path, **gen_data)
 
         data = np.load(full_path)
 
@@ -93,7 +97,7 @@ class Sprites(Dataset):
 
 
 class Clevr(Dataset):
-    def __init__(self, directory, transform=None):
+    def __init__(self, directory, train=True, transform=None):
         self.directory = directory
         self.filenames = os.listdir(directory)
         self.n = len(self.filenames)
@@ -118,7 +122,7 @@ class Clevr(Dataset):
 
 class MultiObjectDataset(Dataset):
 
-    def __init__(self, data_path, train, split=0.9):
+    def __init__(self, data_path, train, split=0.9, transform = None):
         super().__init__()
 
         # Load data
@@ -145,10 +149,15 @@ class MultiObjectDataset(Dataset):
         # From numpy/ndarray to torch tensors (labels are lists of tensors as
         # they might have different sizes)
         self.x = torch.from_numpy(x[indices])
+        
         try:
-            self.labels = self._labels_to_tensorlist(labels, indices)
+            labels.pop('text', None)
+            labels.pop('brut', None)
         except:
-            self.labels = labels
+            print("No text to pop !")
+        
+        self.labels = self._labels_to_tensorlist(labels, indices)
+
 
     @staticmethod
     def _labels_to_tensorlist(labels, indices):
@@ -215,6 +224,7 @@ class MultiObjectDataLoader(DataLoader):
             for k in keys:
                 if trailing_dims[k] is None:
                     continue
+
                 size = [max_len[k]] + list(trailing_dims[k])
                 batch[i][1][k] = pad(batch[i][1][k], size)
 

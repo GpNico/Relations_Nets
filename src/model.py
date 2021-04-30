@@ -64,10 +64,10 @@ class AttentionNet(nn.Module):
     def __init__(self, conf):
         super().__init__()
         self.conf = conf
-        self.unet = UNet(num_blocks=conf.num_blocks,
+        self.unet = UNet(num_blocks=conf['num_blocks'],
                          in_channels=4,
                          out_channels=2,
-                         channel_base=conf.channel_base)
+                         channel_base=conf['channel_base'])
 
     def forward(self, x, scope):
         inp = torch.cat((x, scope), 1)
@@ -152,7 +152,7 @@ class Monet(nn.Module):
     def forward(self, x):
         scope = torch.ones_like(x[:, 0:1])
         masks = []
-        for i in range(self.conf.num_slots-1):
+        for i in range(self.conf['num_slots']-1):
             mask, scope = self.attention(x, scope)
             masks.append(mask)
         masks.append(scope)
@@ -163,7 +163,7 @@ class Monet(nn.Module):
         kl_zs = torch.zeros_like(loss)
         for i, mask in enumerate(masks):
             z, kl_z = self.__encoder_step(x, mask)
-            sigma = self.conf.bg_sigma if i == 0 else self.conf.fg_sigma
+            sigma = self.conf['bg_sigma'] if i == 0 else self.conf['fg_sigma']
             p_x, x_recon, mask_pred = self.__decoder_step(x, z, mask, sigma)
             mask_preds.append(mask_pred)
             loss += -p_x + self.beta * kl_z
@@ -208,6 +208,54 @@ class Monet(nn.Module):
         p_x *= mask
         p_x = torch.sum(p_x, [1, 2, 3])
         return p_x, x_recon, mask_pred
+        
+        
+class MonetClassifier(nn.Module):
+    def __init__(self, conf, height, width, dim_points):
+        super().__init__()
+        self.conf = conf
+        self.attention = AttentionNet(conf)
+        self.encoder = EncoderNet(height, width)
+        # z = 16 for multi_dsprites
+        self.MLP = model = nn.Sequential(nn.Linear(16, 64),
+                                         nn.ReLU(),
+                                         nn.Linear(64, dim_points))
+        self.beta = 0.5
+        self.gamma = 0.25
+
+    def forward(self, x):
+        scope = torch.ones_like(x[:, 0:1])
+        masks = []
+        for i in range(self.conf['num_slots']-1):
+            mask, scope = self.attention(x, scope)
+            masks.append(mask)
+        masks.append(scope)
+        
+        outputs = []
+
+        for i, mask in enumerate(masks):
+            z = self.__encoder_step(x, mask)
+
+            outputs.append(self.MLP(z))
+            
+        outputs = torch.stack(outputs, dim = 1)
+        masks = torch.cat(masks, 1)
+  
+        return outputs, masks
+
+
+    def __encoder_step(self, x, mask):
+        encoder_input = torch.cat((x, mask), 1)
+        q_params = self.encoder(encoder_input)
+        means = torch.sigmoid(q_params[:, :16]) * 6 - 3
+        sigmas = torch.sigmoid(q_params[:, 16:]) * 3
+        dist = dists.Normal(means, sigmas)
+        dist_0 = dists.Normal(0., sigmas)
+        z = means + dist_0.sample()
+        q_z = dist.log_prob(z)
+        kl_z = dists.kl_divergence(dist, dists.Normal(0., 1.))
+        kl_z = torch.sum(kl_z, 1)
+        return z
 
 
 def print_image_stats(images, name):

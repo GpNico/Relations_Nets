@@ -1,0 +1,51 @@
+name: supervised
+
+datasets:
+
+    multi_sprite:
+        transform:
+            filepath: src/transform.py
+            fct: identity
+        objectdataset:
+            filepath: src/datasets.py
+            class: MultiObjectDataset
+        dataloader:
+            filepath: src/datasets.py
+            class: MultiObjectDataLoader
+  
+        params:
+            height: 64
+            width: 64
+            vis_every: 50
+            batch_size: 8
+            num_epochs: 20
+            load_parameters: 1
+            num_slots: 4
+            num_blocks: 5
+            channel_base: 64
+            bg_sigma: 0.09
+            fg_sigma: 0.11
+            
+        prediction:
+            shape:
+                dim_points: 3
+                checkpoint_file: ./checkpoints/multi_sprites_supervised_shape.ckpt
+                filepath: ./data/multi_dsprites_210407_144010.npz
+                output_to_title:
+                    filepath: src/preprocess.py
+                    fct: ott_multi_sprite_shape
+                get_ground_truth:
+                    filepath: src/preprocess.py
+                    fct: ggt_multi_sprite_shape
+                        
+            rela_base:
+                dim_points: 3
+                checkpoint_file: ./checkpoints/multi_sprites_supervised_relation_base.ckpt
+                filepath: ./data/multi_dsprites_top_right_top_and_right_monet.npz
+                output_to_title:
+                    filepath: src/preprocess.py
+                    fct: ott_multi_sprite_rela_base
+                get_ground_truth:
+                    filepath: src/preprocess.py
+                    fct: ggt_multi_sprite_rela_base
+
