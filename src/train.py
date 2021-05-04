@@ -74,9 +74,18 @@ def supervised_experiment(args, vis):
     valoader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=False, num_workers=0)
     
     #Create Model
+    try:
+        dim_rela = config['prediction'][args.prediction]['dim_rela']
+        print("Predicting Relations ... ")
+    except:
+        print("Not Predicting Relations ...")
+        dim_rela = 0
+    
+    
     monet = model.MonetClassifier(config['params'], config['params']['height'],
                                                     config['params']['width'],
-                                                    config['prediction'][args.prediction]['dim_points']).cuda()
+                                                    config['prediction'][args.prediction]['dim_points'],
+                                                    dim_rela).cuda()
     
     print("Start Training")
     #Run Training
@@ -151,7 +160,8 @@ def run_training_supervised(monet, conf, pred, trainloader, valoader, vis):
     get_ground_truth = utils.import_from_path(conf['prediction'][pred]['get_ground_truth']['filepath'],
                                               conf['prediction'][pred]['get_ground_truth']['fct'])
 
-    optimizer = optim.RMSprop(monet.parameters(), lr=1e-4)
+    #optimizer = optim.RMSprop(monet.parameters(), lr=1e-4)
+    optimizer = optim.Adam(monet.parameters(), lr = 1e-4)
     criterion = utils.hungarian_huber_loss
     
     iter_per_epoch = len(trainloader)
@@ -163,8 +173,7 @@ def run_training_supervised(monet, conf, pred, trainloader, valoader, vis):
             images, labels = images.cuda(), get_ground_truth(labels, conf, pred).cuda()
 
             optimizer.zero_grad()
-            output, _ = monet(images)
-            loss = criterion(output, labels)
+            output, loss = monet.get_loss(images, labels, criterion)
             loss.backward()
             optimizer.step()
 

@@ -211,15 +211,29 @@ class Monet(nn.Module):
         
         
 class MonetClassifier(nn.Module):
-    def __init__(self, conf, height, width, dim_points):
+    def __init__(self, conf, height, width, dim_points, dim_rela = 0):
         super().__init__()
         self.conf = conf
         self.attention = AttentionNet(conf)
         self.encoder = EncoderNet(height, width)
         # z = 16 for multi_dsprites
-        self.MLP = model = nn.Sequential(nn.Linear(16, 64),
-                                         nn.ReLU(),
-                                         nn.Linear(64, dim_points))
+        self.dim_z = 16
+        self.MLP = nn.Sequential(nn.Linear(self.dim_z, 64),
+                                       nn.ReLU(),
+                                       nn.Linear(64, dim_points))
+                                       
+        #Flag for relationship prediction
+        if dim_rela > 0:
+            self.pred_rela = True
+            self.dim_rela = dim_rela
+        else:
+            self.pred_rela = False
+            
+        if self.pred_rela:
+            self.MLP_binary_rela = nn.Sequential(nn.Linear(2*self.dim_z, 64),
+                                                 nn.ReLU(),
+                                                 nn.Linear(64, dim_rela))
+        
         self.beta = 0.5
         self.gamma = 0.25
 
@@ -235,13 +249,17 @@ class MonetClassifier(nn.Module):
 
         for i, mask in enumerate(masks):
             z = self.__encoder_step(x, mask)
-
             outputs.append(self.MLP(z))
             
         outputs = torch.stack(outputs, dim = 1)
         masks = torch.cat(masks, 1)
   
         return outputs, masks
+        
+    def get_loss(self, x, target, loss_function):
+        output, _ = self.forward(x)
+        loss = loss_function(x, target)
+        return output, loss
 
 
     def __encoder_step(self, x, mask):

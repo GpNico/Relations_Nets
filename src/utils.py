@@ -61,6 +61,22 @@ def visualize_masks(imgs, masks, recons):
     seg_maps /= 255.0
     return seg_maps
     
+def to_class_label(y):
+    """
+        Take a one-hot-encoded vector and return the class number
+    """
+    
+    batch_size , num_classes = y.shape 
+    
+    target = torch.zeros(batch_size)
+    
+    for k in range(batch_size):
+        class_num = torch.argmax(y)
+        if y[class_num] ==1: #Class 0 correspond to "no object"
+            target[k] = class_num + 1
+        
+    return target.type(torch.LongTensor)
+    
 def gather_nd(params, indices):
     nb_batch, _, nb_points = indices.shape
     res = torch.zeros(nb_batch, nb_points)
@@ -68,12 +84,23 @@ def gather_nd(params, indices):
         res[i] = params[i][indices[i][0], indices[i][1]]
     return res
     
-def hungarian_huber_loss(x,y):
-    # x shape : [batch_size, n_points, n_points]
-    # y shape : [batch_size, n_points, n_points]
+def huber_loss(x,y, delta = 1.):
     
-    huber_loss = torch.nn.MSELoss(reduction = 'none')
-    pairwise_cost = torch.sum(huber_loss(torch.unsqueeze(x, axis = -3), torch.unsqueeze(y, axis = -2)), axis = -1)
+    L1 = torch.nn.L1Loss(reduction = 'none')(x,y)
+    L2 = torch.nn.MSELoss(reduction = 'none')(x, y)
+    
+    val = torch.where(L1 < delta, 0.5*L2, delta*(L1 - 0.5*delta))
+    
+    return val
+      
+def hungarian_huber_loss(x,y):
+    """
+        x shape : [batch_size, n_points, dim_points]
+        y shape : [batch_size, n_points, dim_points]
+    """
+    #loss = torch.nn.MSELoss(reduction = 'none')
+    loss = huber_loss
+    pairwise_cost = torch.sum(loss(torch.unsqueeze(x, axis = -3), torch.unsqueeze(y, axis = -2)), axis = -1)
     
     pairwise_cost_np = pairwise_cost.cpu().detach().numpy()
     
@@ -82,6 +109,31 @@ def hungarian_huber_loss(x,y):
     actual_costs = gather_nd(pairwise_cost, indices)
 
     return torch.mean( torch.sum(actual_costs, axis = 1) )
+    
+    
+def hybrid_hungarian_huber_ce_loss(x, y):
+    loss_1 = huber_loss
+    pairwise_cost = torch.sum(loss_1(torch.unsqueeze(x, axis = -3), torch.unsqueeze(y, axis = -2)), axis = -1)
+    
+    pairwise_cost_np = pairwise_cost.cpu().detach().numpy()
+    
+    _, sigma = np.array(list(map(scipy.optimize.linear_sum_assignment, pairwise_cost_np)))
+    
+    # \tilde{o}_{\sigma(i)} \sim o_i
+    # rq: \tilde{o}_i (prediction) ; o_i (ground truth)
+    
+    loss_2 = torch.nn.CrossEntropyLoss(reduction = 'none')
+    
+    batch_size, num_slots, _ = x.shape #Not Clean
+    loss = torch.zeros(batch_size)
+    
+    for k in range(num_slots):
+        loss += loss_2(x[:, sigma[k], 0:3], to_class_label(y[k, 0:3]))
+        loss += loss_2(x[:, sigma[k], 3:9], to_class_label(y[k, 3:9]))
+        loss += loss_2(x[:, sigma[k], 9:16], to_class_label(y[k, 9:16]))
+        
+    return torch.mean(loss)
+    
     
     
 def Average_Precision(model, loader, conf, thresh = 0.01):
@@ -129,4 +181,26 @@ def import_from_path(path_to_module, obj_name = None):
         return module
     obj = getattr(module, obj_name)
     return obj
+    
+def color_name(arr):
+    assert arr.shape[0] == 3, "Color array must be of shapr 3"
+    
+    x, y, z = arr
+    
+    if x == 255:
+        if y == 0 and z == 0:
+            return 'red'
+        elif y == 255 and z == 0:
+            return 'yellow'
+        elif y == 255 and z == 255:
+            return 'white'
+        elif y == 0 and z == 255:
+            return 'magenta'
+    elif x == 0:
+        if y == 255 and z == 0:
+            return 'green'
+        elif y == 255 and z == 255:
+            return 'cyan'
+        elif y == 0 and z == 255:
+            return 'blue'
 

@@ -17,9 +17,9 @@ datasets:
             height: 64
             width: 64
             vis_every: 50
-            batch_size: 8
+            batch_size: 16
             num_epochs: 20
-            load_parameters: 1
+            load_parameters: 0
             num_slots: 4
             num_blocks: 5
             channel_base: 64
@@ -37,9 +37,20 @@ datasets:
                 get_ground_truth:
                     filepath: src/preprocess.py
                     fct: ggt_multi_sprite_shape
+            all_carac:
+                dim_points: 16
+                checkpoint_file: ./checkpoints/multi_sprites_supervised_all_carac.ckpt
+                filepath: ./data/multi_dsprites_210407_144010.npz
+                output_to_title:
+                    filepath: src/preprocess.py
+                    fct: ott_multi_sprite_all_carac
+                get_ground_truth:
+                    filepath: src/preprocess.py
+                    fct: ggt_multi_sprite_all_carac
                         
             rela_base:
                 dim_points: 3
+                dim_rela: 3
                 checkpoint_file: ./checkpoints/multi_sprites_supervised_relation_base.ckpt
                 filepath: ./data/multi_dsprites_top_right_top_and_right_monet.npz
                 output_to_title:
