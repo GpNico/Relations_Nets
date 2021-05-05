@@ -10,7 +10,7 @@ https://github.com/stelzner/monet
 
 For the Slot Attention implementation it's a mix between :
 
-https://github.com/lucidrains/slot-attention
+https://github.com/lucidrains/slot-attention and 
 https://github.com/google-research/google-research/tree/master/slot_attention
 
 # Datasets
