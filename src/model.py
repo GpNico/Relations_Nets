@@ -7,6 +7,17 @@ import torch.distributions as dists
 
 import torchvision
 
+from slot_attention import SlotAttention
+
+import numpy as np
+
+
+##############################################################################################################
+##                                                                                                          ##
+##                                                 MONET                                                    ##
+##                                                                                                          ##
+##############################################################################################################
+
 
 def double_conv(in_channels, out_channels):
     return nn.Sequential(
@@ -80,7 +91,7 @@ class AttentionNet(nn.Module):
         return mask, new_scope
 
 class EncoderNet(nn.Module):
-    def __init__(self, width, height):
+    def __init__(self, width, height, dim_out = 32):
         super().__init__()
         self.convs = nn.Sequential(
             nn.Conv2d(4, 32, 3, stride=2),
@@ -100,7 +111,7 @@ class EncoderNet(nn.Module):
         self.mlp = nn.Sequential(
             nn.Linear(64 * width * height, 256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, 32)
+            nn.Linear(256, dim_out)
         )
 
     def forward(self, x):
@@ -110,12 +121,15 @@ class EncoderNet(nn.Module):
         return x
 
 class DecoderNet(nn.Module):
-    def __init__(self, height, width):
+    def __init__(self, height, width, dim_in = 16):
         super().__init__()
         self.height = height
         self.width = width
+
+        self.ch_1 = dim_in + 2
+
         self.convs = nn.Sequential(
-            nn.Conv2d(18, 32, 3),
+            nn.Conv2d(self.ch_1, 32, 3),
             nn.ReLU(inplace=True),
             nn.Conv2d(32, 32, 3),
             nn.ReLU(inplace=True),
@@ -143,9 +157,12 @@ class Monet(nn.Module):
     def __init__(self, conf, height, width):
         super().__init__()
         self.conf = conf
+
+        self.dim_z = 16
+
         self.attention = AttentionNet(conf)
-        self.encoder = EncoderNet(height, width)
-        self.decoder = DecoderNet(height, width)
+        self.encoder = EncoderNet(height, width, dim_out = 2*self.dim_z)
+        self.decoder = DecoderNet(height, width, dim_in = self.dim_z)
         self.beta = 0.5
         self.gamma = 0.25
 
@@ -189,8 +206,8 @@ class Monet(nn.Module):
     def __encoder_step(self, x, mask):
         encoder_input = torch.cat((x, mask), 1)
         q_params = self.encoder(encoder_input)
-        means = torch.sigmoid(q_params[:, :16]) * 6 - 3
-        sigmas = torch.sigmoid(q_params[:, 16:]) * 3
+        means = torch.sigmoid(q_params[:, :self.dim_z]) * 6 - 3
+        sigmas = torch.sigmoid(q_params[:, self.dim_z:]) * 3
         dist = dists.Normal(means, sigmas)
         dist_0 = dists.Normal(0., sigmas)
         z = means + dist_0.sample()
@@ -215,12 +232,15 @@ class MonetClassifier(nn.Module):
         super().__init__()
         self.conf = conf
         self.attention = AttentionNet(conf)
-        self.encoder = EncoderNet(height, width)
-        # z = 16 for multi_dsprites
-        self.dim_z = 16
+
+        self.dim_z = 64
+
+        self.encoder = EncoderNet(height, width,  dim_out = 2*self.dim_z)
+        
         self.MLP = nn.Sequential(nn.Linear(self.dim_z, 64),
-                                       nn.ReLU(),
-                                       nn.Linear(64, dim_points))
+                                 nn.ReLU(),
+                                 nn.Linear(64, dim_points),
+                                 nn.Sigmoid())
                                        
         #Flag for relationship prediction
         if dim_rela > 0:
@@ -257,16 +277,16 @@ class MonetClassifier(nn.Module):
         return outputs, masks
         
     def get_loss(self, x, target, loss_function):
-        output, _ = self.forward(x)
-        loss = loss_function(x, target)
-        return output, loss
+        outputs, _ = self.forward(x)
+        loss = loss_function(outputs, target)
+        return outputs, loss
 
 
     def __encoder_step(self, x, mask):
         encoder_input = torch.cat((x, mask), 1)
         q_params = self.encoder(encoder_input)
-        means = torch.sigmoid(q_params[:, :16]) * 6 - 3
-        sigmas = torch.sigmoid(q_params[:, 16:]) * 3
+        means = torch.sigmoid(q_params[:, :self.dim_z]) * 6 - 3
+        sigmas = torch.sigmoid(q_params[:, self.dim_z:]) * 3
         dist = dists.Normal(means, sigmas)
         dist_0 = dists.Normal(0., sigmas)
         z = means + dist_0.sample()
@@ -282,3 +302,96 @@ def print_image_stats(images, name):
     print(name, '2 min/max', images[:, 2].min().item(), images[:, 2].max().item())
 
 
+
+##############################################################################################################
+##                                                                                                          ##
+##                                             SLOT ATTENTION                                               ##
+##                                                                                                          ##
+##############################################################################################################
+
+
+def build_grid(resolution):
+  ranges = [np.linspace(0., 1., num=res) for res in resolution]
+  grid = np.meshgrid(*ranges, sparse=False, indexing="ij")
+  grid = np.stack(grid, axis=-1)
+  grid = np.reshape(grid, [resolution[0], resolution[1], -1])
+  grid = np.expand_dims(grid, axis=0)
+  grid = grid.astype(np.float32)
+  return np.concatenate([grid, 1.0 - grid], axis=-1)
+
+
+
+class SoftPositionEmbed(nn.Module):
+  """Adds soft positional embedding with learnable projection."""
+
+  def __init__(self, hidden_size, resolution):
+    """Builds the soft position embedding layer.
+    Args:
+      hidden_size: Size of input feature dimension.
+      resolution: Tuple of integers specifying width and height of grid.
+    """
+    super().__init__()
+    self.dense = nn.Linear(4, hidden_size)
+    self.grid = torch.from_numpy(build_grid(resolution)).cuda()
+
+  def forward(self, inputs):
+    return torch.transpose(inputs, 3, 1) + self.dense(self.grid)
+
+
+class SlotAttentionClassifier(nn.Module):
+    def __init__(self, conf, height, width, dim_points, dim_rela = 0):
+        super().__init__()
+        self.conf = conf
+
+        self.encoder_cnn = nn.Sequential(nn.Conv2d(3, 64, kernel_size = 5, stride=1, padding = 2),
+                                         nn.ReLU(inplace=True),
+                                         nn.Conv2d(64, 64, kernel_size = 5, stride=2, padding = 2),
+                                         nn.ReLU(inplace=True),
+                                         nn.Conv2d(64, 64, kernel_size = 5, stride=2, padding = 2),
+                                         nn.ReLU(inplace=True),
+                                         nn.Conv2d(64, 64, kernel_size = 5, stride=1, padding = 2),
+                                         nn.ReLU(inplace=True)
+                                        )
+
+        resolution = (height//4, width//4) #Due to CNN
+        
+        self.encoder_pos = SoftPositionEmbed(64, resolution)
+
+        self.layer_norm = torch.nn.LayerNorm(64, eps=0.001)
+
+        self.mlp1 = nn.Sequential(nn.Linear(64, 64),
+                                  nn.ReLU(),
+                                  nn.Linear(64, 64))
+
+        self.slot_attention = SlotAttention(num_slots = conf['num_slots'],
+                                            dim = 64,
+                                            iters = 3)
+
+        self.mlp_classifier = nn.Sequential(nn.Linear(64, 64),
+                                            nn.ReLU(),
+                                            nn.Linear(64, dim_points),
+                                            nn.Sigmoid())
+
+    def forward(self, image):
+
+        x = self.encoder_cnn(image)
+        x = self.encoder_pos(x) 
+        # x.shape [batch_size, 32, 32, 64]
+
+        x = x.reshape(-1, x.shape[1]*x.shape[2], x.shape[-1])
+        # x.shape [batch_size, 32*32, 64]
+
+        x = self.mlp1(self.layer_norm(x))
+        # x.shape [batch_size, 32*32, 64]
+
+        slots = self.slot_attention(x)
+        # x.shape [batch_size, num_slots, slot_size]
+
+        predictions = self.mlp_classifier(slots)
+
+        return predictions, None
+        
+    def get_loss(self, x, target, loss_function):
+        outputs, _ = self.forward(x)
+        loss = loss_function(outputs, target)
+        return outputs, loss

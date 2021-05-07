@@ -38,6 +38,13 @@ if __name__ == '__main__':
                         dest='prediction',
                         help='which dataset to make (only in supervised training)')
     
+    parser.add_argument('-m',
+                        '--model',
+                        type=str,
+                        default='monet',
+                        dest='model',
+                        help='which model to load : monet or slot_att')
+    
     args = parser.parse_args()
     
     args.config = os.path.join('config', args.config)

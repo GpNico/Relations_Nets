@@ -103,7 +103,7 @@ def ott_multi_sprite_all_carac(tensor, thresh = 0.1):
         confidence = 0.
         idx_sh = np.argmax(arr[k][:3])
         idx_si = np.argmax(arr[k][3:9])
-        idx_co = np.argmax(arr[k][9:])
+        idx_co = np.argmax(arr[k][9:16])
         
         confidence += arr[k][idx_sh] + arr[k][3 + idx_si] + arr[k][9 + idx_co]  
         if confidence/3 < thresh:
@@ -154,6 +154,7 @@ def ggt_multi_sprite_all_carac(labels, conf, pred):
     carac_shape = labels['shape']
     carac_scale = labels['scale']
     carac_color = labels['color']
+    carac_coords = labels['coords']
 
     batch_size, max_objs = carac_shape.shape
     
@@ -198,6 +199,12 @@ def ggt_multi_sprite_all_carac(labels, conf, pred):
                 ground_truth[k, l, 14] = 1
             elif color == 'blue':
                 ground_truth[k, l, 15] = 1
+
+            r, c = carac_coords[k][l]
+            if r >= 0. and c >= 0.:
+                ground_truth[k, l, 16] = r
+                ground_truth[k, l, 17] = c
+                ground_truth[k, l, 18] = 1 #There is an object
     
     return ground_truth
 

@@ -81,15 +81,22 @@ def supervised_experiment(args, vis):
         print("Not Predicting Relations ...")
         dim_rela = 0
     
-    
-    monet = model.MonetClassifier(config['params'], config['params']['height'],
-                                                    config['params']['width'],
-                                                    config['prediction'][args.prediction]['dim_points'],
-                                                    dim_rela).cuda()
+    if args.model == 'monet':
+        model_net = model.MonetClassifier(config['params'], config['params']['height'],
+                                                        config['params']['width'],
+                                                        config['prediction'][args.prediction]['dim_points'],
+                                                        dim_rela).cuda()
+    elif args.model == 'slot_att':
+        model_net = model.SlotAttentionClassifier(config['params'], config['params']['height'],
+                                                        config['params']['width'],
+                                                        config['prediction'][args.prediction]['dim_points'],
+                                                        dim_rela).cuda()
+    else:
+        raise Exception("Error in the model name. Make sure it is in {monet, slot_att}.")
     
     print("Start Training")
     #Run Training
-    run_training_supervised(monet, config, args.prediction, trainloader, valoader, vis)
+    run_training_supervised(model_net, config, args.prediction, trainloader, valoader, vis)
     
     
     
@@ -144,12 +151,12 @@ def run_training_unsupervised(monet, conf, trainloader, vis):
     print('training done')
     
     
-def run_training_supervised(monet, conf, pred, trainloader, valoader, vis):
+def run_training_supervised(model, conf, pred, trainloader, valoader, vis):
     if conf['params']['load_parameters'] and os.path.isfile(conf['prediction'][pred]['checkpoint_file']):
-        monet.load_state_dict(torch.load(conf['prediction'][pred]['checkpoint_file']))
+        model.load_state_dict(torch.load(conf['prediction'][pred]['checkpoint_file']))
         print('Restored parameters from', conf['prediction'][pred]['checkpoint_file'])
     else:
-        for w in monet.parameters():
+        for w in model.parameters():
             std_init = 0.01
             nn.init.normal_(w, mean=0., std=std_init)
         print('Initialized parameters')
@@ -161,7 +168,7 @@ def run_training_supervised(monet, conf, pred, trainloader, valoader, vis):
                                               conf['prediction'][pred]['get_ground_truth']['fct'])
 
     #optimizer = optim.RMSprop(monet.parameters(), lr=1e-4)
-    optimizer = optim.Adam(monet.parameters(), lr = 1e-4)
+    optimizer = optim.Adam(model.parameters(), lr = 1e-4)
     criterion = utils.hungarian_huber_loss
     
     iter_per_epoch = len(trainloader)
@@ -173,7 +180,7 @@ def run_training_supervised(monet, conf, pred, trainloader, valoader, vis):
             images, labels = images.cuda(), get_ground_truth(labels, conf, pred).cuda()
 
             optimizer.zero_grad()
-            output, loss = monet.get_loss(images, labels, criterion)
+            output, loss = model.get_loss(images, labels, criterion)
             loss.backward()
             optimizer.step()
 
@@ -184,23 +191,28 @@ def run_training_supervised(monet, conf, pred, trainloader, valoader, vis):
                       (epoch + 1, i + 1, running_loss / conf['params']['vis_every']))
                 
                 vis.plotline('loss', 'train', 'Loss', epoch*iter_per_epoch + i, running_loss / conf['params']['vis_every'] )
-                
-                #AP_train = Average_Precision(monet, trainloader, conf.num_slots)
-                #AP_train = 0.
-                #AP_val = Average_Precision(monet, valoader, conf)
-                
-                #vis.plotline('AP', 'train', 'Average Precision', epoch*iter_per_epoch + i, AP_train )
-                #vis.plotline('AP', 'val', 'Average Precision', epoch*iter_per_epoch + i, AP_val )
-                
+
                 vis.plotimage('image1', utils.numpify(images[0]), output_to_title(output[0]))
                 vis.plotimage('image2', utils.numpify(images[1]), output_to_title(output[1]))
                 vis.plotimage('image3', utils.numpify(images[2]), output_to_title(output[2]))
                 vis.plotimage('image4', utils.numpify(images[3]), output_to_title(output[3]))
+
+                model.eval()
+
+                ap_train = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().cpu().numpy(), d) for d in [-1., 1., 0.5, 0.25, 0.125] ]
+
+                images, labels = iter(valoader).next()
+                labels = get_ground_truth(labels, conf, pred)
+                output, _ = model(images.cuda())
+                ap_val = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().numpy(), d) for d in [-1., 1., 0.5, 0.25, 0.125] ]
+                
+                vis.plotline('AP', 'train', 'Average Precision', epoch*iter_per_epoch + i, ap_train[1] )
+                vis.plotline('AP', 'val', 'Average Precision', epoch*iter_per_epoch + i, ap_val[1] )
                 
                 running_loss = 0.0
-                monet.train()
+                model.train()
                 
-        torch.save(monet.state_dict(), conf['prediction'][pred]['checkpoint_file'])
+        torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'])
 
     print('training done')
 

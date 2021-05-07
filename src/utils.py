@@ -61,21 +61,6 @@ def visualize_masks(imgs, masks, recons):
     seg_maps /= 255.0
     return seg_maps
     
-def to_class_label(y):
-    """
-        Take a one-hot-encoded vector and return the class number
-    """
-    
-    batch_size , num_classes = y.shape 
-    
-    target = torch.zeros(batch_size)
-    
-    for k in range(batch_size):
-        class_num = torch.argmax(y)
-        if y[class_num] ==1: #Class 0 correspond to "no object"
-            target[k] = class_num + 1
-        
-    return target.type(torch.LongTensor)
     
 def gather_nd(params, indices):
     nb_batch, _, nb_points = indices.shape
@@ -99,7 +84,9 @@ def hungarian_huber_loss(x,y):
         y shape : [batch_size, n_points, dim_points]
     """
     #loss = torch.nn.MSELoss(reduction = 'none')
-    loss = huber_loss
+    #loss = huber_loss
+    loss = torch.nn.SmoothL1Loss(reduction = 'none')
+
     pairwise_cost = torch.sum(loss(torch.unsqueeze(x, axis = -3), torch.unsqueeze(y, axis = -2)), axis = -1)
     
     pairwise_cost_np = pairwise_cost.cpu().detach().numpy()
@@ -110,64 +97,119 @@ def hungarian_huber_loss(x,y):
 
     return torch.mean( torch.sum(actual_costs, axis = 1) )
     
-    
-def hybrid_hungarian_huber_ce_loss(x, y):
-    loss_1 = huber_loss
-    pairwise_cost = torch.sum(loss_1(torch.unsqueeze(x, axis = -3), torch.unsqueeze(y, axis = -2)), axis = -1)
-    
-    pairwise_cost_np = pairwise_cost.cpu().detach().numpy()
-    
-    _, sigma = np.array(list(map(scipy.optimize.linear_sum_assignment, pairwise_cost_np)))
-    
-    # \tilde{o}_{\sigma(i)} \sim o_i
-    # rq: \tilde{o}_i (prediction) ; o_i (ground truth)
-    
-    loss_2 = torch.nn.CrossEntropyLoss(reduction = 'none')
-    
-    batch_size, num_slots, _ = x.shape #Not Clean
-    loss = torch.zeros(batch_size)
-    
-    for k in range(num_slots):
-        loss += loss_2(x[:, sigma[k], 0:3], to_class_label(y[k, 0:3]))
-        loss += loss_2(x[:, sigma[k], 3:9], to_class_label(y[k, 3:9]))
-        loss += loss_2(x[:, sigma[k], 9:16], to_class_label(y[k, 9:16]))
-        
-    return torch.mean(loss)
-    
-    
-    
-def Average_Precision(model, loader, conf, thresh = 0.01):
-    N = len(loader)
-    model.eval()
-    precision = 0.
-    
-    huber_loss = torch.nn.MSELoss(reduction = 'none')
-    
-    for data in tqdm.tqdm(loader, total = N, disable = False):
-        images, labels = data
-        ground_truth = get_ground_truth(labels, conf).cuda()
-        
-        images = images.cuda()
-        output, _ = model(images)
-        
-        x = output.detach()
-        y = ground_truth
-        batch_size = ground_truth.shape[0]
-        
-        pairwise_cost = torch.sum(huber_loss(torch.unsqueeze(x, axis = -3), torch.unsqueeze(y, axis = -2)), axis = -1)
-    
-        pairwise_cost_np = pairwise_cost.cpu().detach().numpy()
-    
-        indices = np.array(list(map(scipy.optimize.linear_sum_assignment, pairwise_cost_np)))
 
-        actual_costs = gather_nd(pairwise_cost, indices)
-        
-        for k in range(batch_size):
-            for l in range(num_slots):
-                if actual_costs[k][l] < thresh:
-                    precision += 1./(conf.num_slots*batch_size)
-        
-    return precision/N
+def average_precision(pred, attributes, distance_threshold):
+    """
+         Args:
+            pred: Array of shape [batch_size, num_elements, dimension] containing
+              predictions. The last dimension is expected to be the confidence of the
+              prediction.
+            attributes: Array of shape [batch_size, num_elements, dimension] containing
+              ground-truth object properties.
+            distance_threshold: Threshold to accept match. -1 indicates no threshold.
+        Returns:
+            Average precision of the predictions.
+    """
+
+    def unsorted_id_to_image(detection_id, predicted_elements):
+        return int(detection_id // predicted_elements)
+
+    def process_targets(target):
+        shape = np.argmax(target[:3])
+        object_size = np.argmax(target[3:9])
+        color = np.argmax(target[9:16])
+        coords = target[16:18]
+        real_obj = target[18]
+        return coords, object_size, shape, color, real_obj
+
+    batch_size, _, element_size = attributes.shape
+    _, predicted_elements, _ = pred.shape
+
+    flat_size = batch_size * predicted_elements
+    flat_pred = np.reshape(pred, [flat_size, element_size])
+    sort_idx = np.argsort(flat_pred[:, -1], axis = 0)[::-1] #Because last dim is for the confidence of  wheter or not there is an object
+
+    sorted_predictions = np.take_along_axis(flat_pred, np.expand_dims(sort_idx, axis=1), axis=0)
+    idx_sorted_to_unsorted = np.take_along_axis(np.arange(flat_size), sort_idx, axis=0)
+
+    true_positives = np.zeros(sorted_predictions.shape[0])
+    false_positives = np.zeros(sorted_predictions.shape[0])
+
+    detection_set = set()
+
+    for detection_id in range(sorted_predictions.shape[0]):
+
+        current_pred = sorted_predictions[detection_id, :]
+
+        original_image_idx = unsorted_id_to_image(idx_sorted_to_unsorted[detection_id], predicted_elements)
+
+        gt_image = attributes[original_image_idx, :, :]
+
+        best_distance = 10000
+        best_id = None
+
+        (pred_coords, pred_object_size, pred_shape, pred_color, _) = process_targets(current_pred)
+
+        for target_object_id in range(gt_image.shape[0]):
+            target_object = gt_image[target_object_id, :]
+
+            (target_coords, target_object_size, target_shape, target_color, target_real_obj) = process_targets(target_object)
+
+            if target_real_obj:
+
+                pred_attr = [pred_object_size, pred_shape, pred_color]
+                target_attr = [target_object_size, target_shape, target_color]
+
+                match = pred_attr == target_attr
+
+                if match:
+                    # If a match was found, we check if the distance is below the
+                    # specified threshold. Recall that we have rescaled the coordinates
+                    # in the dataset from [-3, 3] to [0, 1], both for `target_coords` and
+                    # `pred_coords`. To compare in the original scale, we thus need to
+                    # multiply the distance values by 6 before applying the norm.
+                    distance = np.linalg.norm((target_coords - pred_coords) * 6.)
+
+                    if distance < best_distance:
+                        best_distance = distance
+                        best_id = target_object_id
+        if best_distance < distance_threshold or distance_threshold == -1:
+            if best_id is not None:
+                if (original_image_idx, best_id) not in detection_set:
+                    true_positives[detection_id] = 1
+                    detection_set.add((original_image_idx, best_id))
+                else:
+                    false_positives[detection_id] = 1
+            else:
+                false_positives[detection_id] = 1
+        else:
+            false_positives[detection_id] = 1
+    accumulated_fp = np.cumsum(false_positives)
+    accumulated_tp = np.cumsum(true_positives)
+    recall_array = accumulated_tp / np.sum(attributes[: , :, -1]) #divide by the number of objects
+    precision_array = np.divide(accumulated_tp, (accumulated_tp + accumulated_fp))
+
+    return compute_average_precision(np.array(precision_array, dtype=np.float32), np.array(recall_array, dtype=np.float32))
+
+
+def compute_average_precision(precision, recall):
+  """Computation of the average precision from precision and recall arrays."""
+  recall = recall.tolist()
+  precision = precision.tolist()
+  recall = [0] + recall + [1]
+  precision = [0] + precision + [0]
+
+  for i in range(len(precision) - 1, -0, -1):
+    precision[i - 1] = max(precision[i - 1], precision[i])
+
+  indices_recall = [ i for i in range(len(recall) - 1) if recall[1:][i] != recall[:-1][i] ]
+
+  average_precision = 0.
+  for i in indices_recall:
+    average_precision += precision[i + 1] * (recall[i + 1] - recall[i])
+  
+    return average_precision
+
     
 def import_from_path(path_to_module, obj_name = None):
     """
