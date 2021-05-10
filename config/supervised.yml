@@ -67,8 +67,12 @@ datasets:
                 height: 128
                 width: 128
                 vis_every: 50
-                batch_size: 128
-                num_epochs: 500
+                batch_size: 256
+                learning_rate: 0.0004
+                warmup_steps: 1000
+                decay_rate: 0.5
+                decay_steps: 50000
+                num_epochs: 5000
                 load_parameters: 0
                 num_slots: 10
                 num_blocks: 6

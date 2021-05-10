@@ -11,6 +11,7 @@ import yaml
 
 import src.model as model
 import src.utils as utils
+from src.training_monitor import TrainingMonitor
 
 #################################
 #                               #
@@ -167,9 +168,30 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
     get_ground_truth = utils.import_from_path(conf['prediction'][pred]['get_ground_truth']['filepath'],
                                               conf['prediction'][pred]['get_ground_truth']['fct'])
 
+
+    training_monitor = TrainingMonitor(dataset)
+
+
+    base_learning_rate = conf['params']['learning_rate']
+    warmup_steps, decay_rate, decay_steps = conf['params']['warmup_steps'], conf['params']['decay_rate'], conf['params']['decay_steps']
+    global_step = 0
+
+    def learning_rate_scheduler(step):
+        if step < warmup_steps:
+            factor = step/warmup_steps
+        else:
+            factor = 1 
+        
+        factor = factor * ( decay_rate**(step/decay_steps) )
+ 
+        return factor
+
     #optimizer = optim.RMSprop(monet.parameters(), lr=1e-4)
-    optimizer = optim.Adam(model.parameters(), lr = 1e-6)
+    optimizer = optim.Adam(model.parameters(), lr = base_learning_rate,  eps=1e-08)
+    scheduler = optim.lr_scheduler.LambdaLR(optimizer, learning_rate_scheduler)
     criterion = utils.hungarian_huber_loss
+
+    
     
     iter_per_epoch = len(trainloader)
 
@@ -185,12 +207,20 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
             optimizer.step()
 
             running_loss += loss.item()
+            scheduler.step()
 
             if i % conf['params']['vis_every'] == conf['params']['vis_every']-1:
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / conf['params']['vis_every']))
                 
-                vis.plotline('loss', 'train', 'Loss', epoch*iter_per_epoch + i, running_loss / conf['params']['vis_every'] )
+                vis.plotline('loss', 'train', 'Loss', global_step, running_loss / conf['params']['vis_every'] )
+                vis.plotline('lr', 'train', 'Learning Rate', global_step, optimizer.param_groups[0]['lr'])
+
+                color_count, shape_count, size_count = training_monitor.get_carac_precision(output.detach(), labels.detach())
+
+                vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_count)
+                vis.plotline('carac_precision', 'size', 'Carac Precision', global_step, size_count)
+                vis.plotline('carac_precision', 'color', 'Carac Precision', global_step, color_count)
 
                 vis.plotimage('image1', utils.numpify(images[0]), output_to_title(output[0]))
                 vis.plotimage('image2', utils.numpify(images[1]), output_to_title(output[1]))
@@ -206,11 +236,13 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                 output, _ = model(images.cuda())
                 ap_val = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
                 
-                vis.plotline('AP', 'train', 'Average Precision', epoch*iter_per_epoch + i, ap_train[1] )
-                vis.plotline('AP', 'val', 'Average Precision', epoch*iter_per_epoch + i, ap_val[1] )
+                vis.plotline('AP', 'train', 'Average Precision', global_step, ap_train[1] )
+                vis.plotline('AP', 'val', 'Average Precision', global_step, ap_val[1] )
                 
                 running_loss = 0.0
                 model.train()
+
+            global_step += 1
                 
         torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'])
 
