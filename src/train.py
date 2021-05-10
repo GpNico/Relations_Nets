@@ -168,7 +168,7 @@ def run_training_supervised(model, conf, pred, trainloader, valoader, vis):
                                               conf['prediction'][pred]['get_ground_truth']['fct'])
 
     #optimizer = optim.RMSprop(monet.parameters(), lr=1e-4)
-    optimizer = optim.Adam(model.parameters(), lr = 1e-4)
+    optimizer = optim.Adam(model.parameters(), lr = 1e-6)
     criterion = utils.hungarian_huber_loss
     
     iter_per_epoch = len(trainloader)
