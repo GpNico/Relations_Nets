@@ -98,7 +98,7 @@ def hungarian_huber_loss(x,y):
     return torch.mean( torch.sum(actual_costs, axis = 1) )
     
 
-def average_precision(pred, attributes, distance_threshold):
+def average_precision(pred, attributes, distance_threshold, data):
     """
          Args:
             pred: Array of shape [batch_size, num_elements, dimension] containing
@@ -114,13 +114,23 @@ def average_precision(pred, attributes, distance_threshold):
     def unsorted_id_to_image(detection_id, predicted_elements):
         return int(detection_id // predicted_elements)
 
-    def process_targets(target):
-        shape = np.argmax(target[:3])
-        object_size = np.argmax(target[3:9])
-        color = np.argmax(target[9:16])
-        coords = target[16:18]
-        real_obj = target[18]
-        return coords, object_size, shape, color, real_obj
+    def process_targets(target, data):
+        if data == 'multi_sprite':
+            shape = np.argmax(target[:3])
+            object_size = np.argmax(target[3:9])
+            material = 1. #we do not predict material with multi_sprite
+            color = np.argmax(target[9:16])
+            coords = target[16:18]
+            real_obj = target[18]
+        elif data == 'clevr':
+            shape = np.argmax(target[:3])
+            object_size = np.argmax(target[3:5])
+            material = np.argmax(target[5:7])
+            color = np.argmax(target[7:15])
+            coords = target[15:18]
+            real_obj = target[18]
+            
+        return coords, object_size, material, shape, color, real_obj
 
     batch_size, _, element_size = attributes.shape
     _, predicted_elements, _ = pred.shape
@@ -148,17 +158,17 @@ def average_precision(pred, attributes, distance_threshold):
         best_distance = 10000
         best_id = None
 
-        (pred_coords, pred_object_size, pred_shape, pred_color, _) = process_targets(current_pred)
+        (pred_coords, pred_object_size, pred_material, pred_shape, pred_color, _) = process_targets(current_pred, data)
 
         for target_object_id in range(gt_image.shape[0]):
             target_object = gt_image[target_object_id, :]
 
-            (target_coords, target_object_size, target_shape, target_color, target_real_obj) = process_targets(target_object)
+            (target_coords, target_object_size, target_material, target_shape, target_color, target_real_obj) = process_targets(target_object, data)
 
             if target_real_obj:
 
-                pred_attr = [pred_object_size, pred_shape, pred_color]
-                target_attr = [target_object_size, target_shape, target_color]
+                pred_attr = [pred_object_size, pred_material, pred_shape, pred_color]
+                target_attr = [target_object_size, target_material, target_shape, target_color]
 
                 match = pred_attr == target_attr
 

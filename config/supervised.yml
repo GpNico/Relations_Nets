@@ -27,16 +27,6 @@ datasets:
             fg_sigma: 0.11
             
         prediction:
-            shape:
-                dim_points: 3
-                checkpoint_file: ./checkpoints/multi_sprites_supervised_shape.ckpt
-                filepath: ./data/multi_dsprites_210407_144010.npz
-                output_to_title:
-                    filepath: src/preprocess.py
-                    fct: ott_multi_sprite_shape
-                get_ground_truth:
-                    filepath: src/preprocess.py
-                    fct: ggt_multi_sprite_shape
             all_carac:
                 dim_points: 19
                 checkpoint_file: ./checkpoints/slot_multi_sprites_supervised_all_carac.ckpt
@@ -59,4 +49,42 @@ datasets:
                 get_ground_truth:
                     filepath: src/preprocess.py
                     fct: ggt_multi_sprite_rela_base
+                    
+              
+              
+    clevr:
+            transform:
+                filepath: src/transform.py
+                fct: compose_1
+            objectdataset:
+                filepath: src/datasets.py
+                class: Clevr
+            dataloader:
+                filepath: src/datasets.py
+                class: MultiObjectDataLoader
+      
+            params:
+                height: 128
+                width: 128
+                vis_every: 50
+                batch_size: 128
+                num_epochs: 500
+                load_parameters: 0
+                num_slots: 10
+                num_blocks: 6
+                channel_base: 64
+                bg_sigma: 0.09
+                fg_sigma: 0.11
+                
+            prediction:
+                all_carac:
+                    dim_points: 19
+                    checkpoint_file: ./checkpoints/slot_clevr_supervised_all_carac.ckpt
+                    filepath: ./data/CLEVR_v1.0/
+                    output_to_title:
+                        filepath: src/preprocess.py
+                        fct: ott_clevr_all_carac
+                    get_ground_truth:
+                        filepath: src/preprocess.py
+                        fct: ggt_clevr_all_carac
 
