@@ -34,7 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('-p',
                         '--prediction',
                         type=str,
-                        default='rela_base',
+                        default='all_carac',
                         dest='prediction',
                         help='which dataset to make (only in supervised training)')
     

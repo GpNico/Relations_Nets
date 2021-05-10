@@ -33,7 +33,7 @@ datasets:
         
     clevr:
         data:
-          filepath: ./data/CLEVR_v1.0/images/train/
+          filepath: ./data/CLEVR_v1.0/
         
         transform:
             filepath: src/transform.py
@@ -42,8 +42,8 @@ datasets:
             filepath: src/datasets.py
             class: Clevr
         dataloader:
-            filepath: ./
-            class: default
+            filepath: src/datasets.py
+            class: MultiObjectDataLoader
   
         params:
             height: 128

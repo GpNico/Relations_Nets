@@ -96,7 +96,7 @@ def supervised_experiment(args, vis):
     
     print("Start Training")
     #Run Training
-    run_training_supervised(model_net, config, args.prediction, trainloader, valoader, vis)
+    run_training_supervised(model_net, config, args.dataset, args.prediction, trainloader, valoader, vis)
     
     
     
@@ -151,7 +151,7 @@ def run_training_unsupervised(monet, conf, trainloader, vis):
     print('training done')
     
     
-def run_training_supervised(model, conf, pred, trainloader, valoader, vis):
+def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, vis):
     if conf['params']['load_parameters'] and os.path.isfile(conf['prediction'][pred]['checkpoint_file']):
         model.load_state_dict(torch.load(conf['prediction'][pred]['checkpoint_file']))
         print('Restored parameters from', conf['prediction'][pred]['checkpoint_file'])
@@ -199,12 +199,12 @@ def run_training_supervised(model, conf, pred, trainloader, valoader, vis):
 
                 model.eval()
 
-                ap_train = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().cpu().numpy(), d) for d in [-1., 1., 0.5, 0.25, 0.125] ]
+                ap_train = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().cpu().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
 
                 images, labels = iter(valoader).next()
                 labels = get_ground_truth(labels, conf, pred)
                 output, _ = model(images.cuda())
-                ap_val = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().numpy(), d) for d in [-1., 1., 0.5, 0.25, 0.125] ]
+                ap_val = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
                 
                 vis.plotline('AP', 'train', 'Average Precision', epoch*iter_per_epoch + i, ap_train[1] )
                 vis.plotline('AP', 'val', 'Average Precision', epoch*iter_per_epoch + i, ap_val[1] )
