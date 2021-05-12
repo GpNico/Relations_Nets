@@ -47,12 +47,14 @@ class TrainingMonitor:
         num_objs = 0
 
         sigmas = self.get_alignement_indices(preds, targets)
+
+        preds, targets = preds.detach().cpu().numpy(), targets.detach().cpu().numpy()
         
         batch_size, num_slots = sigmas.shape
 
         for k in range(batch_size):
             for l in range(num_slots):
-                if np.max(targets[k][l]) > 0.: #There is an object in this slot
+                if targets[k][l].max() > 0.: #There is an object in this slot
 
                     num_objs += 1
 
@@ -79,7 +81,7 @@ class TrainingMonitor:
         """
 
         loss = torch.nn.SmoothL1Loss(reduction = 'none')
-        pairwise_cost = torch.sum(loss(torch.unsqueeze(x, axis = -3), torch.unsqueeze(y, axis = -2)), axis = -1)
+        pairwise_cost = torch.sum(loss(torch.unsqueeze(preds, axis = -3), torch.unsqueeze(targets, axis = -2)), axis = -1)
         pairwise_cost_np = pairwise_cost.cpu().detach().numpy()
     
         indices = np.array(list(map(scipy.optimize.linear_sum_assignment, pairwise_cost_np)))

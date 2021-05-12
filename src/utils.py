@@ -68,30 +68,20 @@ def gather_nd(params, indices):
     for i in range(nb_batch):
         res[i] = params[i][indices[i][0], indices[i][1]]
     return res
-    
-def huber_loss(x,y, delta = 1.):
-    
-    L1 = torch.nn.L1Loss(reduction = 'none')(x,y)
-    L2 = torch.nn.MSELoss(reduction = 'none')(x, y)
-    
-    val = torch.where(L1 < delta, 0.5*L2, delta*(L1 - 0.5*delta))
-    
-    return val
       
 def hungarian_huber_loss(x,y):
     """
         x shape : [batch_size, n_points, dim_points]
         y shape : [batch_size, n_points, dim_points]
     """
-    #loss = torch.nn.MSELoss(reduction = 'none')
-    #loss = huber_loss
+
     loss = torch.nn.SmoothL1Loss(reduction = 'none')
 
-    pairwise_cost = torch.sum(loss(torch.unsqueeze(x, axis = -3), torch.unsqueeze(y, axis = -2)), axis = -1)
+    pairwise_cost = torch.mean(loss(torch.unsqueeze(x, axis = -3), torch.unsqueeze(y, axis = -2)), axis = -1)
     
     pairwise_cost_np = pairwise_cost.cpu().detach().numpy()
     
-    indices = np.array(list(map(scipy.optimize.linear_sum_assignment, pairwise_cost_np)))
+    indices = torch.from_numpy(np.array(list(map(scipy.optimize.linear_sum_assignment, pairwise_cost_np)), dtype = np.int64) ).cuda()
 
     actual_costs = gather_nd(pairwise_cost, indices)
 

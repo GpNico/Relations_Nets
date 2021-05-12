@@ -157,9 +157,13 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
         model.load_state_dict(torch.load(conf['prediction'][pred]['checkpoint_file']))
         print('Restored parameters from', conf['prediction'][pred]['checkpoint_file'])
     else:
-        for w in model.parameters():
-            std_init = 0.01
-            nn.init.normal_(w, mean=0., std=std_init)
+        for name, w in model.named_parameters():
+            #print(name)
+            #print("mean ", torch.mean(w).item())
+            #print("std ", torch.std(w).item())
+            continue
+            #std_init = 0.01
+            #nn.init.normal_(w, mean=0., std=std_init)
         print('Initialized parameters')
         
     output_to_title = utils.import_from_path(conf['prediction'][pred]['output_to_title']['filepath'],
@@ -191,10 +195,6 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
     scheduler = optim.lr_scheduler.LambdaLR(optimizer, learning_rate_scheduler)
     criterion = utils.hungarian_huber_loss
 
-    
-    
-    iter_per_epoch = len(trainloader)
-
     for epoch in range(conf['params']['num_epochs']):
         running_loss = 0.0
         for i, data in enumerate(trainloader):
@@ -206,42 +206,49 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
+            running_loss = loss.item()
             scheduler.step()
 
-            if i % conf['params']['vis_every'] == conf['params']['vis_every']-1:
-                print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / conf['params']['vis_every']))
+            with torch.no_grad():
+                if global_step % conf['params']['vis_every'] == 0:
+
+
+                    print('[%d, %5d] loss: %.3f' %
+                          (epoch + 1, global_step, running_loss))
                 
-                vis.plotline('loss', 'train', 'Loss', global_step, running_loss / conf['params']['vis_every'] )
-                vis.plotline('lr', 'train', 'Learning Rate', global_step, optimizer.param_groups[0]['lr'])
+                    vis.plotline('loss', 'train', 'Loss', global_step, running_loss)
+                    vis.plotline('lr', 'train', 'Learning Rate', global_step, optimizer.param_groups[0]['lr'])
 
-                color_count, shape_count, size_count = training_monitor.get_carac_precision(output.detach(), labels.detach())
+                    #running_loss = 0.0
 
-                vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_count)
-                vis.plotline('carac_precision', 'size', 'Carac Precision', global_step, size_count)
-                vis.plotline('carac_precision', 'color', 'Carac Precision', global_step, color_count)
+                    if global_step % 500 == 0:
 
-                vis.plotimage('image1', utils.numpify(images[0]), output_to_title(output[0]))
-                vis.plotimage('image2', utils.numpify(images[1]), output_to_title(output[1]))
-                vis.plotimage('image3', utils.numpify(images[2]), output_to_title(output[2]))
-                vis.plotimage('image4', utils.numpify(images[3]), output_to_title(output[3]))
+                        color_precision, shape_precision, size_precision = training_monitor.get_carac_precision(output.detach(), labels.detach())
 
-                model.eval()
+                        vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_precision)
+                        vis.plotline('carac_precision', 'size', 'Carac Precision', global_step, size_precision)
+                        vis.plotline('carac_precision', 'color', 'Carac Precision', global_step, color_precision)
 
-                ap_train = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().cpu().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
+                        #vis.plotimage('image1', utils.numpify(images[0]), output_to_title(output[0]))
+                        #vis.plotimage('image2', utils.numpify(images[1]), output_to_title(output[1]))
+                        #vis.plotimage('image3', utils.numpify(images[2]), output_to_title(output[2]))
+                        #vis.plotimage('image4', utils.numpify(images[3]), output_to_title(output[3]))
 
-                images, labels = iter(valoader).next()
-                labels = get_ground_truth(labels, conf, pred)
-                output, _ = model(images.cuda())
-                ap_val = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
+                        model.eval()
+
+                        #ap_train = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().cpu().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
+
+                        images, labels = iter(valoader).next()
+                        labels = get_ground_truth(labels, conf, pred)
+                        output, _ = model(images.cuda())
+                        ap = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
                 
-                vis.plotline('AP', 'train', 'Average Precision', global_step, ap_train[1] )
-                vis.plotline('AP', 'val', 'Average Precision', global_step, ap_val[1] )
+                        vis.plotline('AP', 'inf', 'Average Precision', global_step, ap[0] )
+                        vis.plotline('AP', '1', 'Average Precision', global_step, ap[1] )
                 
-                running_loss = 0.0
-                model.train()
-
+                    
+                        model.train() 
+            
             global_step += 1
                 
         torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'])

@@ -72,7 +72,7 @@ datasets:
                 warmup_steps: 1000
                 decay_rate: 0.5
                 decay_steps: 50000
-                num_epochs: 5000
+                num_epochs: 1000
                 load_parameters: 0
                 num_slots: 10
                 num_blocks: 6
