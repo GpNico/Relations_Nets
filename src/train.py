@@ -50,7 +50,7 @@ def unsupervised_experiment(args, vis):
     
     
 def supervised_experiment(args, vis):
-    
+    print("Reading Config File ...")
     #Get config file
     with open(args.config) as config_file:
         config = yaml.safe_load(config_file)['datasets'][args.dataset]
@@ -64,15 +64,16 @@ def supervised_experiment(args, vis):
         DataLoader = torch.utils.data.DataLoader
     else:
         DataLoader = utils.import_from_path(config['dataloader']['filepath'], config['dataloader']['class'])
-
+    
+    print("Loading Data ...")
     #Create DataLoader
     trainset = ObjectDataset(config['prediction'][args.prediction]['filepath'], train=True, transform= transform)
     
     valset = ObjectDataset(config['prediction'][args.prediction]['filepath'], train=False, transform= transform)
     
-    trainloader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=True, num_workers=0)
+    trainloader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=True, num_workers=2)
     
-    valoader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=False, num_workers=0)
+    valoader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=False, num_workers=2)
     
     #Create Model
     try:
@@ -85,13 +86,11 @@ def supervised_experiment(args, vis):
     if args.model == 'monet':
         model_net = model.MonetClassifier(config['params'], config['params']['height'],
                                                         config['params']['width'],
-                                                        config['prediction'][args.prediction]['dim_points'],
-                                                        dim_rela).cuda()
+                                                        config['prediction'][args.prediction]['dim_points']).cuda()
     elif args.model == 'slot_att':
         model_net = model.SlotAttentionClassifier(config['params'], config['params']['height'],
                                                         config['params']['width'],
-                                                        config['prediction'][args.prediction]['dim_points'],
-                                                        dim_rela).cuda()
+                                                        config['prediction'][args.prediction]['dim_points']).cuda()
     else:
         raise Exception("Error in the model name. Make sure it is in {monet, slot_att}.")
     
@@ -190,7 +189,6 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
  
         return factor
 
-    #optimizer = optim.RMSprop(monet.parameters(), lr=1e-4)
     optimizer = optim.Adam(model.parameters(), lr = base_learning_rate,  eps=1e-08)
     scheduler = optim.lr_scheduler.LambdaLR(optimizer, learning_rate_scheduler)
     criterion = utils.hungarian_huber_loss
@@ -202,7 +200,7 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
             images, labels = images.cuda(), get_ground_truth(labels, conf, pred).cuda()
 
             optimizer.zero_grad()
-            output, loss = model.get_loss(images, labels, criterion)
+            dict, loss = model.get_loss(images, labels, criterion)
             loss.backward()
             optimizer.step()
 
@@ -215,20 +213,28 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
 
                     print('[%d, %5d] loss: %.3f' %
                           (epoch + 1, global_step, running_loss))
-                
-                    vis.plotline('loss', 'train', 'Loss', global_step, running_loss)
-                    vis.plotline('lr', 'train', 'Learning Rate', global_step, optimizer.param_groups[0]['lr'])
-
-                    #running_loss = 0.0
+                    
+                    try:
+                        vis.plotline('loss', 'train', 'Loss', global_step, running_loss)
+                        vis.plotline('lr', 'train', 'Learning Rate', global_step, optimizer.param_groups[0]['lr'])
+                    except:
+                        pass
 
                     if global_step % 500 == 0:
-
+                        
+                        output = dict['outputs_slot']
                         color_precision, shape_precision, size_precision = training_monitor.get_carac_precision(output.detach(), labels.detach())
-
-                        vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_precision)
-                        vis.plotline('carac_precision', 'size', 'Carac Precision', global_step, size_precision)
-                        vis.plotline('carac_precision', 'color', 'Carac Precision', global_step, color_precision)
-
+                        
+                        try:
+                            vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_precision)
+                            vis.plotline('carac_precision', 'size', 'Carac Precision', global_step, size_precision)
+                            vis.plotline('carac_precision', 'color', 'Carac Precision', global_step, color_precision)
+                        except:
+                            pass
+                        
+                        print('Carac Precision : shape %.3f ; size %.3f ; color %.3f' % (shape_precision, size_precision, color_precision))
+    
+                        
                         #vis.plotimage('image1', utils.numpify(images[0]), output_to_title(output[0]))
                         #vis.plotimage('image2', utils.numpify(images[1]), output_to_title(output[1]))
                         #vis.plotimage('image3', utils.numpify(images[2]), output_to_title(output[2]))
@@ -236,17 +242,20 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
 
                         model.eval()
 
-                        #ap_train = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().cpu().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
-
                         images, labels = iter(valoader).next()
                         labels = get_ground_truth(labels, conf, pred)
-                        output, _ = model(images.cuda())
+                        dict = model(images.cuda())
+                        output = dict['outputs_slot']
                         ap = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
                 
-                        vis.plotline('AP', 'inf', 'Average Precision', global_step, ap[0] )
-                        vis.plotline('AP', '1', 'Average Precision', global_step, ap[1] )
+                        try:
+                            vis.plotline('AP', 'inf', 'Average Precision', global_step, ap[0] )
+                            vis.plotline('AP', '1', 'Average Precision', global_step, ap[1] )
+                        except:
+                            pass
                 
-                    
+                        print('AP : inf %.3f ; 1. %.3f ; 0.5 %.3f' % (ap[0], ap[1], ap[2]))
+                        
                         model.train() 
             
             global_step += 1

@@ -9,8 +9,11 @@ import argparse
 import src.train as train 
 import src.utils as utils
 
-
-vis = utils.VisdomPlotter(env_name = 'Plot Monitor')
+try:
+    vis = utils.VisdomPlotter(env_name = 'Plot Monitor')
+except:
+    print("No visdom session detected !")
+    vis = False
 
 
 if __name__ == '__main__':

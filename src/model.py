@@ -227,7 +227,7 @@ class Monet(nn.Module):
         
         
 class MonetClassifier(nn.Module):
-    def __init__(self, conf, height, width, dim_points, dim_rela = 0):
+    def __init__(self, conf, height, width, dim_points):
         super().__init__()
         self.conf = conf
         self.attention = AttentionNet(conf)
@@ -240,18 +240,6 @@ class MonetClassifier(nn.Module):
                                  nn.ReLU(),
                                  nn.Linear(64, dim_points),
                                  nn.Sigmoid())
-                                       
-        #Flag for relationship prediction
-        if dim_rela > 0:
-            self.pred_rela = True
-            self.dim_rela = dim_rela
-        else:
-            self.pred_rela = False
-            
-        if self.pred_rela:
-            self.MLP_binary_rela = nn.Sequential(nn.Linear(2*self.dim_z, 64),
-                                                 nn.ReLU(),
-                                                 nn.Linear(64, dim_rela))
         
         self.beta = 0.5
         self.gamma = 0.25
@@ -265,20 +253,27 @@ class MonetClassifier(nn.Module):
         masks.append(scope)
         
         outputs = []
+        
+        latent_vectors = []
 
         for i, mask in enumerate(masks):
             z = self.__encoder_step(x, mask)
+            latent_vectors.append(z)
             outputs.append(self.MLP(z))
             
         outputs = torch.stack(outputs, dim = 1)
+        latent_vectors = torch.stack(latent_vectors, dim = 1)
         masks = torch.cat(masks, 1)
+        
+        dict = {'outputs_slot': outputs, 'masks': masks, 'latent_vectors': latent_vectors}
   
-        return outputs, masks
+        return dict
         
     def get_loss(self, x, target, loss_function):
-        outputs, _ = self.forward(x)
+        dict = self.forward(x)
+        outputs = dict['outputs_slot']
         loss = loss_function(outputs, target)
-        return outputs, loss
+        return dict, loss
 
 
     def __encoder_step(self, x, mask):
@@ -404,7 +399,7 @@ class SoftPositionEmbed(nn.Module):
 
 
 class SlotAttentionClassifier(nn.Module):
-    def __init__(self, conf, height, width, dim_points, dim_rela = 0):
+    def __init__(self, conf, height, width, dim_points):
         super().__init__()
         self.conf = conf
 
@@ -453,10 +448,124 @@ class SlotAttentionClassifier(nn.Module):
         # x.shape [batch_size, num_slots, slot_size]
 
         predictions = self.mlp_classifier(slots)
+        
+        dict = {'outputs_slot': predictions, 'masks': None, 'latent_vectors': slots}
 
-        return predictions, None
+        return dict
         
     def get_loss(self, x, target, loss_function):
-        outputs, _ = self.forward(x)
+        dict = self.forward(x)
+        outputs = dict['outputs_slot']
         loss = loss_function(outputs, target)
-        return outputs, loss
+        return dict, loss
+        
+        
+##############################################################################################################
+##                                                                                                          ##
+##                                         RELATIONS PREDICTOR                                              ##
+##                                                                                                          ##
+##############################################################################################################       
+
+
+class RelationsPredictor(nn.Module):
+    def __init__(self, conf, height, width, dim_points, dim_rela, object_classifier = 'slot_att'):
+        
+        self.conf = conf
+        
+        self.alpha = 1.
+        
+        if object_classifier == 'monet':
+            self.obj_class = MonetClassifier(conf, height, width, dim_points)
+        elif object_classifier == 'slot_att':
+            self.obj_class = SlotAttentionClassifier(conf, height, width, dim_points)
+            
+        
+        self.mlp_rela = nn.Sequential(nn.Linear(2*64, 64),
+                                            nn.ReLU(),
+                                            nn.Linear(64, dim_rela),
+                                            nn.Sigmoid())    
+            
+        
+            
+    def forward(self, images):
+        
+        dict = self.obj_class(images)
+        
+        latent_vectors = dict['latent_vectors']
+        
+        _, num_slots, _ = latent_vectors.shape
+        
+        outputs_rela = []
+        index_to_pair = []
+        
+        for k in range(num_slots):
+            for l in range(k):
+                z_k, z_l = latent_vectors[:, k, :], latent_vectors[:, l, :]
+                z_kl = torch.cat((z_k, z_l), dim = -1)
+                z_lk = torch.cat((z_l, z_k), dim = -1)
+                
+                rela_kl = self.mlp_rela(z_kl)
+                rela_lk = self.mlp_rela(z_lk)
+                
+                outputs_rela.append(rela_kl)
+                outputs_rela.append(rela_lk)
+                
+                index_to_pair.append([k, l])
+                index_to_pair.append([l, k])
+        
+        outputs_rela = torch.stack(outputs_rela, dim = 1)
+        
+        dict['outputs_rela'] = outputs_rela
+        dict['index_to_pair'] = index_to_pair
+        
+        return dict
+        
+        
+    def get_loss(self, x, target, loss_function):
+        
+        dict = self.forward(x)
+        
+        outputs_slot = dict['outputs_slot']
+        outputs_rela = dict['outputs_rela']
+        index_to_pair = dict['index_to_pair']
+        
+        loss_obj_class = loss_function(outputs_slot, target)
+        
+        loss_rela_class = torch.zeros(1).cuda()
+        
+        loss = loss_obj_class + self.alpha * loss_rela_class
+        
+        return dict, loss
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

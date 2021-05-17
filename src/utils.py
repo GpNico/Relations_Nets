@@ -208,7 +208,7 @@ def compute_average_precision(precision, recall):
   for i in indices_recall:
     average_precision += precision[i + 1] * (recall[i + 1] - recall[i])
   
-    return average_precision
+  return average_precision
 
     
 def import_from_path(path_to_module, obj_name = None):
