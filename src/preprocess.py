@@ -344,4 +344,35 @@ def ott_clevr_all_carac(tensor, thresh = 0.5):
         title += ' ; '
     
     return title
+    
+    
+def gtt_multi_sprite_rela_base(labels, conf, pred):
+    
+    all_carac_labels = gtt_multi_sprite_all_carac(labels, conf, pred)
+    
+    rela_label = labels['relation']
+    
+    num_slots, dim_rela = conf['params']['num_slots'], conf['prediction'][pred]['dim_rela']
+    
+    batch_size = rela_label.shape[0]
+    
+    def rela_to_Y(rela_code, num_slots = 4, dim_rela = 3):
+        Y = torch.zeros(num_slots, num_slots, dim_rela)
+        if rela_code == 1:
+            Y[0,1,0] = 1
+        elif rela_code == 2:
+            Y[0,1,1] = 1
+        elif rela_code == 7:
+            Y[0,1,2] = 1
+        return Y
+        
+    Y_full = []
+    for k in range(batch_size):
+        Y_full.append(rela_to_Y(rela_label[k], num_slots =  num_slots, dim_rela = dim_rela))
+    Y_full = torch.stack(Y_full)
+    #Y_full shape = [batch_size, n_slots, n_slots, dim_rela]
+    
+    dict_labels = {'carac_labels': all_carac_labels, 'rela_labels': Y_full}
+    
+    return dict_labels
 

@@ -82,10 +82,12 @@ def hungarian_huber_loss(x,y):
     pairwise_cost_np = pairwise_cost.cpu().detach().numpy()
     
     indices = torch.from_numpy(np.array(list(map(scipy.optimize.linear_sum_assignment, pairwise_cost_np)), dtype = np.int64) ).cuda()
+    
+    sigmas = indices[:, 1]
 
     actual_costs = gather_nd(pairwise_cost, indices)
 
-    return torch.mean( torch.sum(actual_costs, axis = 1) )
+    return torch.mean( torch.sum(actual_costs, axis = 1) ), sigmas
     
 
 def average_precision(pred, attributes, distance_threshold, data):

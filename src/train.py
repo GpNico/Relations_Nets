@@ -76,23 +76,30 @@ def supervised_experiment(args, vis):
     valoader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=False, num_workers=2)
     
     #Create Model
-    try:
+    if 'rela' in args.prediction:
         dim_rela = config['prediction'][args.prediction]['dim_rela']
         print("Predicting Relations ... ")
-    except:
-        print("Not Predicting Relations ...")
-        dim_rela = 0
-    
-    if args.model == 'monet':
-        model_net = model.MonetClassifier(config['params'], config['params']['height'],
-                                                        config['params']['width'],
-                                                        config['prediction'][args.prediction]['dim_points']).cuda()
-    elif args.model == 'slot_att':
-        model_net = model.SlotAttentionClassifier(config['params'], config['params']['height'],
-                                                        config['params']['width'],
-                                                        config['prediction'][args.prediction]['dim_points']).cuda()
+        
+        model_net = model.RelationsPredictor(config['params'],
+                                         config['params']['height'],
+                                         config['params']['width'],
+                                         config['prediction'][args.prediction]['dim_points'], 
+                                         config['prediction'][args.prediction]['dim_rela'], 
+                                         object_classifier = args.model).cuda()
+        
     else:
-        raise Exception("Error in the model name. Make sure it is in {monet, slot_att}.")
+        print("Not Predicting Relations ...")
+
+        if args.model == 'monet':
+            model_net = model.MonetClassifier(config['params'], config['params']['height'],
+                                              config['params']['width'],
+                                              config['prediction'][args.prediction]['dim_points']).cuda()
+        elif args.model == 'slot_att':
+            model_net = model.SlotAttentionClassifier(config['params'], config['params']['height'],
+                                                      config['params']['width'],
+                                                      config['prediction'][args.prediction]['dim_points']).cuda()
+        else:
+            raise Exception("Error in the model name. Make sure it is in {monet, slot_att}.")
     
     print("Start Training")
     #Run Training
