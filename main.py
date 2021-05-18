@@ -9,12 +9,18 @@ import argparse
 import src.train as train 
 import src.utils as utils
 
-try:
-    vis = utils.VisdomPlotter(env_name = 'Plot Monitor')
-except:
-    print("No visdom session detected !")
-    vis = False
+import warnings
 
+
+with warnings.catch_warnings():
+    warnings.filterwarnings('error')
+    try:
+        vis = utils.VisdomPlotter(env_name = 'Plot Monitor')
+        print("Visdom session detected !")
+    except Warning: 
+        print("No visdom session detected !")
+        vis = False
+        
 
 if __name__ == '__main__':
     
@@ -23,14 +29,14 @@ if __name__ == '__main__':
     parser.add_argument('-c',
                         '--config',
                         type=str,
-                        default='unsupervised.yml',
+                        default='supervised.yml',
                         dest='config',
                         help='config you wish to load')
                         
     parser.add_argument('-d',
                         '--dataset',
                         type=str,
-                        default='sprite',
+                        default='multi_sprite',
                         dest='dataset',
                         help='which dataset to load : sprite, multi_sprite, clevr')
                         
@@ -44,7 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('-m',
                         '--model',
                         type=str,
-                        default='monet',
+                        default='slot_att',
                         dest='model',
                         help='which model to load : monet or slot_att')
     

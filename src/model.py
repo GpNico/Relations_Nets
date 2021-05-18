@@ -473,7 +473,7 @@ class RelationsPredictor(nn.Module):
         
         self.conf = conf
         
-        self.alpha = 0.5
+        self.alpha = 0.
         
         if object_classifier == 'monet':
             self.obj_class = MonetClassifier(conf, height, width, dim_points)
