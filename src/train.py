@@ -71,9 +71,9 @@ def supervised_experiment(args, vis):
     
     valset = ObjectDataset(config['prediction'][args.prediction]['filepath'], train=False, transform= transform)
     
-    trainloader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=True, num_workers=2)
+    trainloader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=True, num_workers=0)
     
-    valoader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=False, num_workers=2)
+    valoader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=False, num_workers=0)
     
     #Create Model
     if 'rela' in args.prediction:
@@ -145,11 +145,13 @@ def run_training_unsupervised(monet, conf, trainloader, vis):
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / conf['vis_every']))
                 
-                vis.plotline('loss', 'train', 'Loss', epoch*iter_per_epoch + i, running_loss / conf['vis_every'] )
-                vis.plotimagemask('recons', utils.numpify(images[:8]), 
-                                            utils.numpify(output['masks'][:8]),
-                                            utils.numpify(output['reconstructions'][:8]) )
-                
+                try:
+                    vis.plotline('loss', 'train', 'Loss', epoch*iter_per_epoch + i, running_loss / conf['vis_every'] )
+                    vis.plotimagemask('recons', utils.numpify(images[:8]), 
+                                                utils.numpify(output['masks'][:8]),
+                                                utils.numpify(output['reconstructions'][:8]) )
+                except:
+                    pass
                 
                 running_loss = 0.0
                 
@@ -204,7 +206,7 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
         running_loss = 0.0
         for i, data in enumerate(trainloader):
             images, labels = data
-            images, labels = images.cuda(), get_ground_truth(labels, conf, pred).cuda()
+            images, labels = images.cuda(), get_ground_truth(labels, conf, pred)
 
             optimizer.zero_grad()
             dict, loss = model.get_loss(images, labels, criterion)
@@ -230,7 +232,10 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                     if global_step % 500 == 0:
                         
                         output = dict['outputs_slot']
-                        color_precision, shape_precision, size_precision = training_monitor.get_carac_precision(output.detach(), labels.detach())
+                        color_precision, shape_precision, size_precision = training_monitor.get_carac_precision(output, labels['carac_labels'])
+                        
+                        if 'rela' in pred:
+                            rela_precision = training_monitor.get_rela_precision(dict, labels['rela_labels'])
                         
                         try:
                             vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_precision)
@@ -240,12 +245,7 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                             pass
                         
                         print('Carac Precision : shape %.3f ; size %.3f ; color %.3f' % (shape_precision, size_precision, color_precision))
-    
-                        
-                        #vis.plotimage('image1', utils.numpify(images[0]), output_to_title(output[0]))
-                        #vis.plotimage('image2', utils.numpify(images[1]), output_to_title(output[1]))
-                        #vis.plotimage('image3', utils.numpify(images[2]), output_to_title(output[2]))
-                        #vis.plotimage('image4', utils.numpify(images[3]), output_to_title(output[3]))
+                        print('Rela Precision : %.3f' % (rela_precision))
 
                         model.eval()
 
@@ -253,7 +253,7 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                         labels = get_ground_truth(labels, conf, pred)
                         dict = model(images.cuda())
                         output = dict['outputs_slot']
-                        ap = [utils.average_precision(output.detach().cpu().numpy(), labels.detach().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
+                        ap = [utils.average_precision(output.detach().cpu().numpy(), labels['carac_labels'].detach().cpu().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
                 
                         try:
                             vis.plotline('AP', 'inf', 'Average Precision', global_step, ap[0] )
@@ -267,7 +267,7 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
             
             global_step += 1
                 
-        torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'])
+            torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'])
 
     print('training done')
 

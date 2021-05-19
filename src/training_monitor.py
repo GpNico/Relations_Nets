@@ -11,6 +11,7 @@ class TrainingMonitor:
     def __init__(self, dataset = 'clevr'):
         
         self.dataset = dataset
+        self.sigmas = None
 
 
     def process_targets(self, target, data):
@@ -47,6 +48,8 @@ class TrainingMonitor:
         num_objs = 0
 
         sigmas = self.get_alignement_indices(preds, targets)
+        
+        self.sigmas = sigmas
 
         preds, targets = preds.detach().cpu().numpy(), targets.detach().cpu().numpy()
         
@@ -70,6 +73,50 @@ class TrainingMonitor:
                     
 
         return color_count/num_objs, shape_count/num_objs, size_count/num_objs
+        
+    def get_rela_precision(self, outputs, targets):
+        """
+        Args:
+            outputs : dict (outputs_rela) [batch_size, num_slots*(num_slots - 1), dim_rela]
+            targets : tensor [batch_size, num_slots, num_slots, dim_rela]
+        Returns:
+            precision : float
+        """
+        
+        preds = outputs['outputs_rela'].detach().cpu().numpy()
+        index_to_pair = outputs['index_to_pair']
+        targets = targets.detach().cpu().numpy()
+        
+        rela_count = 0
+        
+        num_rela = 0
+        
+        sigmas = self.sigmas
+        
+        batch_size, num_slots, _, dim_rela = targets.shape
+        
+        #Computing sigma_inv
+        sigmas_inv = np.zeros_like(sigmas)
+        batch_size, num_slots = sigmas.shape
+        for k in range(batch_size):
+            for l in range(num_slots):
+                sigmas_inv[k, sigmas[k, l]] = l
+        
+        #fundamental relation : outputs_rela[n, i] ~ rela_labels[n, sigma_inv[index_to_pair[i][0]], sigma_inv[index_to_pair[i][1]]]
+        for n in range(batch_size):
+            for i in range(num_slots*(num_slots-1)):
+                pred = preds[n, i]
+                target = targets[n, sigmas_inv[n,index_to_pair[i][0]], sigmas_inv[n,index_to_pair[i][1]]]
+                
+                if target.max() > 0: #there is a relation
+                    num_rela += 1
+                    
+                    pred_idx = np.argmax(pred)
+                    target_idx = np.argmax(target)
+                    if pred_idx == target_idx:
+                        rela_count += 1
+                                       
+        return rela_count/num_rela
 
 
     def get_alignement_indices(self, preds, targets):
