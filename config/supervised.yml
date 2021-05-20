@@ -17,7 +17,7 @@ datasets:
             height: 64
             width: 64
             vis_every: 50
-            batch_size: 256
+            batch_size: 100
             learning_rate: 0.0004
             warmup_steps: 1000
             decay_rate: 0.5
@@ -33,7 +33,7 @@ datasets:
         prediction:
             all_carac:
                 dim_points: 19
-                checkpoint_file: ./checkpoints/slot_multi_sprites_supervised_all_carac.ckpt
+                checkpoint_file: ./checkpoints/monet_multi_sprites_supervised_all_carac.ckpt
                 filepath: ./data/multi_dsprites_all_carac.npz
                 output_to_title:
                     filepath: src/preprocess.py

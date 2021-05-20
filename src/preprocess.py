@@ -7,50 +7,6 @@ import torch.optim as optim
 import numpy as np
 
 import src.utils as utils
-
- 
-def ott_multi_sprite_rela_base(tensor, thresh = 0.5):
-    arr = tensor.cpu().detach().numpy()
-    num_slots = arr.shape[0]
-    
-    title = ''
-    
-    for k in range(num_slots):
-        idx = np.argmax(arr[k])
-        if arr[k][idx] < thresh:
-            continue
-        if idx == 0:
-            title += 'top '
-            #title += 'square '
-        elif idx == 1:
-            title += 'right '
-            #title += 'triangle '
-        elif idx == 2:
-            title += 'right_and_top '
-            #title += 'ellipse '
-    
-    return title
-    
-    
-def ggt_multi_sprite_rela_base(labels, conf, pred):
-
-    carac = labels['relation'].type(torch.LongTensor).unsqueeze(dim = -1)
-
-    batch_size, max_objs = carac.shape
-    
-    ground_truth = torch.zeros(batch_size, conf['params']['num_slots'], conf['prediction'][pred]['dim_points'])
-    
-    for k in range(batch_size):
-        for l in range(max_objs):
-            val = carac[k][l]
-            if val == 1:
-                ground_truth[k, l, 0] = 1
-            elif val == 2:
-                ground_truth[k, l, 1] = 1
-            elif val == 7:
-                ground_truth[k, l, 2] = 1
-    
-    return ground_truth
     
     
 def ott_multi_sprite_all_carac(tensor, thresh = 0.5):
@@ -166,7 +122,7 @@ def ggt_multi_sprite_all_carac(labels, conf, pred):
                 ground_truth[k, l, 17] = c
                 ground_truth[k, l, 18] = 1 #There is an object
     
-    return ground_truth
+    return {'carac_labels': ground_truth.cuda()}
     
     
     
@@ -287,7 +243,7 @@ def ggt_clevr_all_carac(labels, conf, pred):
                 
                 ground_truth[k, l, 18] = 1 #There is an object
     
-    return ground_truth
+    return {'carac_labels': ground_truth.cuda()}
     
     
 def ott_clevr_all_carac(tensor, thresh = 0.5):
@@ -348,7 +304,7 @@ def ott_clevr_all_carac(tensor, thresh = 0.5):
     
 def gtt_multi_sprite_rela_base(labels, conf, pred):
     
-    all_carac_labels = gtt_multi_sprite_all_carac(labels, conf, pred)
+    all_carac_labels = ggt_multi_sprite_all_carac(labels, conf, pred)['carac_labels']
     
     rela_label = labels['relation']
     
@@ -372,7 +328,7 @@ def gtt_multi_sprite_rela_base(labels, conf, pred):
     Y_full = torch.stack(Y_full)
     #Y_full shape = [batch_size, n_slots, n_slots, dim_rela]
     
-    dict_labels = {'carac_labels': all_carac_labels, 'rela_labels': Y_full}
+    dict_labels = {'carac_labels': all_carac_labels.cuda(), 'rela_labels': Y_full.cuda()}
     
     return dict_labels
 

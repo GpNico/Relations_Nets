@@ -272,7 +272,8 @@ class MonetClassifier(nn.Module):
     def get_loss(self, x, target, loss_function):
         dict = self.forward(x)
         outputs = dict['outputs_slot']
-        loss, _ = loss_function(outputs, target)
+        carac_labels = target['carac_labels']
+        loss, _ = loss_function(outputs, carac_labels)
         return dict, loss
 
 
@@ -281,6 +282,7 @@ class MonetClassifier(nn.Module):
         q_params = self.encoder(encoder_input)
         means = torch.sigmoid(q_params[:, :self.dim_z]) * 6 - 3
         sigmas = torch.sigmoid(q_params[:, self.dim_z:]) * 3
+        sigmas += 1e-5*torch.ones_like(sigmas)
         dist = dists.Normal(means, sigmas)
         dist_0 = dists.Normal(0., sigmas)
         z = means + dist_0.sample()
@@ -355,6 +357,9 @@ class SlotAttention(nn.Module):
 
             dots = torch.einsum('bid,bjd->bij', q, k) * self.scale
             attn = dots.softmax(dim=1) + self.eps
+
+            masks = attn
+
             attn = attn / attn.sum(dim=-1, keepdim=True)
 
             updates = torch.einsum('bjd,bij->bid', v, attn)
@@ -367,7 +372,7 @@ class SlotAttention(nn.Module):
             slots = slots.reshape(b, -1, d)
             slots = slots + self.mlp(self.norm_pre_ff(slots))
 
-        return slots
+        return slots, masks
 
 
 def build_grid(resolution):
@@ -444,19 +449,20 @@ class SlotAttentionClassifier(nn.Module):
         x = self.mlp1(self.layer_norm(x))
         # x.shape [batch_size, 32*32, 64]
 
-        slots = self.slot_attention(x)
+        slots, attn = self.slot_attention(x)
         # x.shape [batch_size, num_slots, slot_size]
 
         predictions = self.mlp_classifier(slots)
         
-        dict = {'outputs_slot': predictions, 'masks': None, 'latent_vectors': slots}
+        dict = {'outputs_slot': predictions, 'masks': attn, 'latent_vectors': slots}
 
         return dict
         
     def get_loss(self, x, target, loss_function):
         dict = self.forward(x)
         outputs = dict['outputs_slot']
-        loss, _ = loss_function(outputs, target)
+        carac_labels = target['carac_labels']
+        loss, _ = loss_function(outputs, carac_labels)
         return dict, loss
         
         
@@ -473,7 +479,7 @@ class RelationsPredictor(nn.Module):
         
         self.conf = conf
         
-        self.alpha = 0.
+        self.alpha = 0.1
         
         if object_classifier == 'monet':
             self.obj_class = MonetClassifier(conf, height, width, dim_points)
@@ -545,6 +551,8 @@ class RelationsPredictor(nn.Module):
         #fundamental relation : outputs_rela[n, i] ~ rela_labels[n, sigma_inv[index_to_pair[i][0]], sigma_inv[index_to_pair[i][1]]]
         
         loss_function_2 = torch.nn.SmoothL1Loss(reduction = 'none')
+        
+        loss_rela_class = 0.
         
         for i in range(num_slots*(num_slots-1)):
             loss_rela_class += torch.mean(loss_function_2(outputs_rela[:, i], 

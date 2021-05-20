@@ -19,7 +19,7 @@ datasets:
             height: 64
             width: 64
             vis_every: 50
-            batch_size: 16
+            batch_size: 64
             num_epochs: 20
             load_parameters: 1
             num_slots: 4
@@ -27,7 +27,7 @@ datasets:
             channel_base: 64
             bg_sigma: 0.09
             fg_sigma: 0.11
-            checkpoint_file: ./checkpoints/sprites.ckpt
+            checkpoint_file: ./checkpoints/sprites_unsupervised.ckpt
         
 
         
@@ -49,7 +49,7 @@ datasets:
             height: 128
             width: 128
             vis_every: 50
-            batch_size: 8
+            batch_size: 64
             num_epochs: 20
             load_parameters: 1
             num_slots: 11
@@ -57,7 +57,7 @@ datasets:
             channel_base: 64
             bg_sigma: 0.09
             fg_sigma: 0.11
-            checkpoint_file: ./checkpoints/clevr64.ckpt
+            checkpoint_file: ./checkpoints/clevr_unsupervised.ckpt
             
     multi_sprite:
         data:
@@ -77,7 +77,7 @@ datasets:
             height: 64
             width: 64
             vis_every: 50
-            batch_size: 16
+            batch_size: 64
             num_epochs: 20
             load_parameters: 1
             num_slots: 4
@@ -85,5 +85,5 @@ datasets:
             channel_base: 64
             bg_sigma: 0.09
             fg_sigma: 0.11
-            checkpoint_file: ./checkpoints/multi_sprites.ckpt
+            checkpoint_file: ./checkpoints/multi_sprites_unsupervised.ckpt
 
