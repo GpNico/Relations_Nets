@@ -17,7 +17,7 @@ datasets:
             height: 64
             width: 64
             vis_every: 50
-            batch_size: 128
+            batch_size: 100
             learning_rate: 0.0004
             warmup_steps: 1000
             decay_rate: 0.5

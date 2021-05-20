@@ -116,7 +116,6 @@ class EncoderNet(nn.Module):
     def forward(self, x):
         x = self.convs(x)
         x = x.view(x.shape[0], -1)
-        print("x encoder shape ", x.shape)
         x = self.mlp(x)
         return x
 
@@ -258,7 +257,6 @@ class MonetClassifier(nn.Module):
         latent_vectors = []
 
         for i, mask in enumerate(masks):
-            print("x shape ", x.shape, " mask shape ", mask.shape)
             z = self.__encoder_step(x, mask)
             latent_vectors.append(z)
             outputs.append(self.MLP(z))
@@ -272,7 +270,6 @@ class MonetClassifier(nn.Module):
         return dict
         
     def get_loss(self, x, target, loss_function):
-        print('x shape ', x.shape)
         dict = self.forward(x)
         outputs = dict['outputs_slot']
         carac_labels = target['carac_labels']
@@ -282,7 +279,6 @@ class MonetClassifier(nn.Module):
 
     def __encoder_step(self, x, mask):
         encoder_input = torch.cat((x, mask), 1)
-        print(" encoder_input shape ", encoder_input.shape)
         q_params = self.encoder(encoder_input)
         means = torch.sigmoid(q_params[:, :self.dim_z]) * 6 - 3
         sigmas = torch.sigmoid(q_params[:, self.dim_z:]) * 3
