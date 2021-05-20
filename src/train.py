@@ -234,9 +234,6 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                         output = dict['outputs_slot']
                         color_precision, shape_precision, size_precision = training_monitor.get_carac_precision(output, labels['carac_labels'])
                         
-                        if 'rela' in pred:
-                            rela_precision = training_monitor.get_rela_precision(dict, labels['rela_labels'])
-                        
                         try:
                             vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_precision)
                             vis.plotline('carac_precision', 'size', 'Carac Precision', global_step, size_precision)
@@ -245,7 +242,11 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                             pass
                         
                         print('Carac Precision : shape %.3f ; size %.3f ; color %.3f' % (shape_precision, size_precision, color_precision))
-                        print('Rela Precision : %.3f' % (rela_precision))
+
+                        if 'rela' in pred:
+                            rela_precision = training_monitor.get_rela_precision(dict, labels['rela_labels'])
+                            vis.plotline('carac_precision', 'rela', 'Carac Precision', global_step, rela_precision)
+                            print('Rela Precision : %.3f' % (rela_precision))
 
                         model.eval()
 
