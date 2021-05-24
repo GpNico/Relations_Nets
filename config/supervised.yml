@@ -59,7 +59,7 @@ datasets:
     clevr:
             transform:
                 filepath: src/transform.py
-                fct: compose_1
+                fct: compose_2
             objectdataset:
                 filepath: src/datasets.py
                 class: Clevr

@@ -49,8 +49,8 @@ datasets:
             height: 128
             width: 128
             vis_every: 50
-            batch_size: 64
-            num_epochs: 20
+            batch_size: 4
+            num_epochs: 40
             load_parameters: 1
             num_slots: 11
             num_blocks: 6

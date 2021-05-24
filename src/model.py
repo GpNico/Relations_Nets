@@ -319,9 +319,9 @@ class SlotAttention(nn.Module):
         self.slots_logsigma = nn.Parameter(torch.zeros(1, 1, dim))
         init.xavier_uniform_(self.slots_logsigma)
 
-        self.to_q = nn.Linear(dim, dim,  bias=False)
-        self.to_k = nn.Linear(dim, dim,  bias=False)
-        self.to_v = nn.Linear(dim, dim,  bias=False)
+        self.to_q = nn.Linear(dim, dim,  bias=True)
+        self.to_k = nn.Linear(dim, dim,  bias=True)
+        self.to_v = nn.Linear(dim, dim,  bias=True)
 
         self.gru = nn.GRUCell(dim, dim)
 

@@ -170,7 +170,7 @@ def average_precision(pred, attributes, distance_threshold, data):
                     # in the dataset from [-3, 3] to [0, 1], both for `target_coords` and
                     # `pred_coords`. To compare in the original scale, we thus need to
                     # multiply the distance values by 6 before applying the norm.
-                    distance = np.linalg.norm((target_coords - pred_coords) * 6.)
+                    distance = np.linalg.norm((target_coords - pred_coords) * 1.)
 
                     if distance < best_distance:
                         best_distance = distance
