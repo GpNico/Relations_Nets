@@ -121,6 +121,13 @@ def average_precision(pred, attributes, distance_threshold, data):
             color = np.argmax(target[7:15])
             coords = target[15:18]
             real_obj = target[18]
+        elif data == 'multi_sprite_equal':
+            shape = np.argmax(target[:5])
+            object_size = np.argmax(target[5:10])
+            material = 1. #we do not predict material with multi_sprite
+            color = np.argmax(target[10:15])
+            coords = target[15:17]
+            real_obj = target[17]
             
         return coords, object_size, material, shape, color, real_obj
 

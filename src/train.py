@@ -230,14 +230,24 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                         pass
 
                     if global_step % 500 == 0:
-                        
+
+                        model.eval()
+
+                        images, labels = iter(valoader).next()
+                        labels = get_ground_truth(labels, conf, pred)
+                        dict = model(images.cuda())
                         output = dict['outputs_slot']
-                        color_precision, shape_precision, size_precision = training_monitor.get_carac_precision(output, labels['carac_labels'])
+
+                        output = dict['outputs_slot']
+                        metrics_dict = training_monitor.get_carac_precision(output, labels['carac_labels'])
+                        color_precision, shape_precision, size_precision = metrics_dict['precision']
+                        overall_precision = metrics_dict['overall_precision']
                         
                         try:
                             vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_precision)
                             vis.plotline('carac_precision', 'size', 'Carac Precision', global_step, size_precision)
                             vis.plotline('carac_precision', 'color', 'Carac Precision', global_step, color_precision)
+                            vis.plotline('carac_precision', 'overall', 'Carac Precision', global_step, overall_precision)
                         except:
                             pass
                         
@@ -250,13 +260,8 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                             except:
                                 pass
                             print('Rela Precision : %.3f' % (rela_precision))
+                            print('alpha : %.3f' % (model.alpha))
 
-                        model.eval()
-
-                        images, labels = iter(valoader).next()
-                        labels = get_ground_truth(labels, conf, pred)
-                        dict = model(images.cuda())
-                        output = dict['outputs_slot']
                         ap = [utils.average_precision(output.detach().cpu().numpy(), labels['carac_labels'].detach().cpu().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
                 
                         try:

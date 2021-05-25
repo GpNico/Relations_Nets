@@ -38,7 +38,7 @@ if __name__ == '__main__':
                         type=str,
                         default='multi_sprite',
                         dest='dataset',
-                        help='which dataset to load : sprite, multi_sprite, clevr')
+                        help='which dataset to load : sprite, multi_sprite, clevr, multi_sprite_equal')
                         
     parser.add_argument('-p',
                         '--prediction',

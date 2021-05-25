@@ -5,6 +5,8 @@ import numpy as np
 import torch
 import scipy.optimize
 
+from sklearn.metrics import confusion_matrix
+
 
 class TrainingMonitor:
 
@@ -29,6 +31,13 @@ class TrainingMonitor:
             color = np.argmax(target[7:15])
             coords = target[15:18]
             real_obj = target[18]
+        elif data == 'multi_sprite_equal':
+            shape = np.argmax(target[:5])
+            object_size = np.argmax(target[5:10])
+            material = 1. #we do not predict material with multi_sprite
+            color = np.argmax(target[10:15])
+            coords = target[15:17]
+            real_obj = target[17]
             
         return coords, object_size, material, shape, color, real_obj
 
@@ -44,6 +53,12 @@ class TrainingMonitor:
         color_count = 0
         shape_count = 0
         size_count = 0
+
+        pred_objs = 0
+
+        color_true, color_pred = [], []
+        shape_true, shape_pred = [], []
+        size_true, size_pred = [], []
 
         num_objs = 0
 
@@ -64,15 +79,33 @@ class TrainingMonitor:
                     (_, pred_object_size, pred_material, pred_shape, pred_color, _) = self.process_targets(preds[k][sigmas[k][l]], self.dataset)
                     (_, target_object_size, target_material, target_shape, target_color, _) = self.process_targets(targets[k][l], self.dataset)
 
+                    if (pred_object_size, pred_material, pred_shape, pred_color) == (target_object_size, target_material, target_shape, target_color):
+                        pred_objs += 1
+
+                    color_true.append(target_color)
+                    color_pred.append(pred_color)
+                    shape_true.append(target_shape)
+                    shape_pred.append(pred_shape)
+                    size_true.append(target_object_size)
+                    size_pred.append(pred_object_size)
+
                     if pred_object_size == target_object_size:
                         size_count += 1
                     if pred_shape == target_shape:
                         shape_count += 1
                     if pred_color == target_color:
                         color_count += 1
-                    
+        
+        cm_color = confusion_matrix(color_true, color_pred)
+        cm_shape = confusion_matrix(shape_true, shape_pred)
+        cm_size = confusion_matrix(size_true, size_pred)
 
-        return color_count/num_objs, shape_count/num_objs, size_count/num_objs
+
+        metric = {'precision': (color_count/num_objs, shape_count/num_objs, size_count/num_objs),
+                  'confusion_matrix': (cm_color, cm_shape, cm_size),
+                  'overall_precision': pred_objs/num_objs}
+
+        return metric
         
     def get_rela_precision(self, outputs, targets):
         """

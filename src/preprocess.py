@@ -123,6 +123,63 @@ def ggt_multi_sprite_all_carac(labels, conf, pred):
                 ground_truth[k, l, 18] = 1 #There is an object
     
     return {'carac_labels': ground_truth.cuda()}
+
+def ggt_multi_sprite_equal_carac(labels, conf, pred):
+
+    carac_shape = labels['shape']
+    carac_scale = labels['scale']
+    carac_color = labels['color']
+    carac_coords = labels['coords']
+
+    batch_size, max_objs = carac_shape.shape
+    
+    ground_truth = torch.zeros(batch_size, conf['params']['num_slots'], conf['prediction'][pred]['dim_points'])
+    
+    for k in range(batch_size):
+        for l in range(max_objs):
+            shape = carac_shape[k][l]
+            if shape == 0:
+                ground_truth[k, l, 0] = 1
+            elif shape == 1:
+                ground_truth[k, l, 1] = 1
+            elif shape == 2:
+                ground_truth[k, l, 2] = 1
+            elif shape == 3:
+                ground_truth[k, l, 3] = 1
+            elif shape == 4:
+                ground_truth[k, l, 4] = 1
+                
+            scale = carac_scale[k][l]
+            if scale == 0.5000:
+                ground_truth[k, l, 5] = 1
+            elif scale == 0.6250:
+                ground_truth[k, l, 6] = 1
+            elif scale == 0.7500:
+                ground_truth[k, l, 7] = 1
+            elif scale == 0.8750:
+                ground_truth[k, l, 8] = 1
+            elif scale == 1.:
+                ground_truth[k, l, 9] = 1
+                
+            color = utils.color_name(carac_color[k][l])
+            if color == 'red':
+                ground_truth[k, l, 10] = 1
+            elif color == 'yellow':
+                ground_truth[k, l, 11] = 1
+            elif color == 'white':
+                ground_truth[k, l, 12] = 1
+            elif color == 'green':
+                ground_truth[k, l, 13] = 1
+            elif color == 'blue':
+                ground_truth[k, l, 14] = 1
+
+            r, c = carac_coords[k][l]
+            if r >= 0. and c >= 0.:
+                ground_truth[k, l, 15] = r
+                ground_truth[k, l, 16] = c
+                ground_truth[k, l, 17] = 1 #There is an object
+    
+    return {'carac_labels': ground_truth.cuda()}
     
     
     

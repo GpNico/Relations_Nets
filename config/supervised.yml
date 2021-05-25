@@ -33,7 +33,7 @@ datasets:
         prediction:
             all_carac:
                 dim_points: 19
-                checkpoint_file: ./checkpoints/monet_multi_sprites_supervised_all_carac.ckpt
+                checkpoint_file: ./checkpoints/slot_multi_sprites_supervised_all_carac.ckpt
                 filepath: ./data/multi_dsprites_all_carac.npz
                 output_to_title:
                     filepath: src/preprocess.py
@@ -96,3 +96,42 @@ datasets:
                         filepath: src/preprocess.py
                         fct: ggt_clevr_all_carac
 
+    multi_sprite_equal:
+        transform:
+            filepath: src/transform.py
+            fct: identity
+        objectdataset:
+            filepath: src/datasets.py
+            class: MultiObjectDataset
+        dataloader:
+            filepath: src/datasets.py
+            class: MultiObjectDataLoader
+  
+        params:
+            height: 64
+            width: 64
+            vis_every: 50
+            batch_size: 100
+            learning_rate: 0.0004
+            warmup_steps: 1000
+            decay_rate: 0.5
+            decay_steps: 50000
+            num_epochs: 500
+            load_parameters: 0
+            num_slots: 4
+            num_blocks: 5
+            channel_base: 64
+            bg_sigma: 0.09
+            fg_sigma: 0.11
+            
+        prediction:
+            all_carac:
+                dim_points: 18
+                checkpoint_file: ./checkpoints/slot_multi_sprites_supervised_equal_carac.ckpt
+                filepath: ./data/multi_dsprites_equal_carac.npz
+                output_to_title:
+                    filepath: src/preprocess.py
+                    fct: ott_multi_sprite_all_carac
+                get_ground_truth:
+                    filepath: src/preprocess.py
+                    fct: ggt_multi_sprite_equal_carac
