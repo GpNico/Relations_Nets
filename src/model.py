@@ -480,6 +480,7 @@ class RelationsPredictor(nn.Module):
         self.conf = conf
         
         self.alpha = 0.
+        self.step = 0
         
         if object_classifier == 'monet':
             self.obj_class = MonetClassifier(conf, height, width, dim_points)
@@ -565,9 +566,11 @@ class RelationsPredictor(nn.Module):
         loss = loss_obj_class + self.alpha * loss_rela_class
 
         #Update Alpha
-
-        self.alpha += 1e-5
         
+        self.step += 1
+        if self.step > 2*10**4:
+           self.alpha += 1e-5
+       
         return dict, loss
 
 

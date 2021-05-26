@@ -5,6 +5,9 @@ import numpy as np
 import torch
 import scipy.optimize
 
+import pickle
+import os
+
 from sklearn.metrics import confusion_matrix
 
 
@@ -14,6 +17,12 @@ class TrainingMonitor:
         
         self.dataset = dataset
         self.sigmas = None
+
+        self.color_prec = []
+        self.shape_prec = []
+        self.size_prec = []
+        self.overall_prec = []
+        self.rela_prec = []
 
 
     def process_targets(self, target, data):
@@ -100,6 +109,11 @@ class TrainingMonitor:
         cm_shape = confusion_matrix(shape_true, shape_pred)
         cm_size = confusion_matrix(size_true, size_pred)
 
+        self.color_prec.append(color_count/num_objs)
+        self.shape_prec.append(shape_count/num_objs)
+        self.size_prec.append(size_count/num_objs)
+        self.overall_prec.append(pred_objs/num_objs)
+
 
         metric = {'precision': (color_count/num_objs, shape_count/num_objs, size_count/num_objs),
                   'confusion_matrix': (cm_color, cm_shape, cm_size),
@@ -148,6 +162,8 @@ class TrainingMonitor:
                     target_idx = np.argmax(target)
                     if pred_idx == target_idx:
                         rela_count += 1
+
+        self.rela_prec.append(rela_count/num_rela)
                                        
         return rela_count/num_rela
 
@@ -159,13 +175,47 @@ class TrainingMonitor:
             The relation is :
                 preds[sigma[i]] <-> targets[i]
         """
-
+        num_slot = preds.shape[1]
         loss = torch.nn.SmoothL1Loss(reduction = 'none')
-        pairwise_cost = torch.sum(loss(torch.unsqueeze(preds, axis = -3), torch.unsqueeze(targets, axis = -2)), axis = -1)
+        pairwise_cost = torch.sum(loss(torch.unsqueeze(preds, axis = -3).expand(-1, num_slot, -1,-1), 
+                                       torch.unsqueeze(targets, axis = -2).expand(-1, -1, num_slot, -1)), axis = -1)
         pairwise_cost_np = pairwise_cost.cpu().detach().numpy()
     
         indices = np.array(list(map(scipy.optimize.linear_sum_assignment, pairwise_cost_np)))
         #indices shape [batch_size, 2, num_slots]
 
         return indices[:,1,:]
+
+    def save_to_pickle(self):
+        
+        #Data
+
+        dict_data = {'color_prec': self.color_prec,
+                     'shape_prec': self.shape_prec,
+                     'size_prec': self.size_prec,
+                     'overall_prec': self.overall_prec,
+                     'rela_prec': self.rela_prec}
+
+        #Dump
+        filename = 'carac_experiment'
+                
+        if not(os.path.exists(filename)):
+            print("Creating Save File ...")
+            savefile = open(filename, 'wb')
+            pickle.dump([], savefile)
+            savefile.close()
+        
+        savefile = open(filename, 'rb')
+
+        list_of_dict = pickle.load(savefile)
+
+        savefile.close()
+
+        list_of_dict.append(dict_data)
+
+        savefile = open(filename, 'wb')
+        pickle.dump(list_of_dict, savefile)
+        savefile.close()
+
+
 

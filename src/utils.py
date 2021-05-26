@@ -77,7 +77,10 @@ def hungarian_huber_loss(x,y):
 
     loss = torch.nn.SmoothL1Loss(reduction = 'none')
 
-    pairwise_cost = torch.mean(loss(torch.unsqueeze(x, axis = -3), torch.unsqueeze(y, axis = -2)), axis = -1)
+    num_slot = x.shape[1]
+
+    pairwise_cost = torch.mean(loss(torch.unsqueeze(x, axis = -3).expand(-1, num_slot, -1,-1),
+                                    torch.unsqueeze(y, axis = -2).expand(-1, -1, num_slot,-1)), axis = -1)
     
     pairwise_cost_np = pairwise_cost.cpu().detach().numpy()
     

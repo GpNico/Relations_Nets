@@ -1,26 +1,10 @@
 # License: MIT
 # Author: Karl Stelzner
 
-
-import visdom
-import os
+import os 
 import argparse
 
-import src.train as train 
-import src.utils as utils
-
-import warnings
-
-
-with warnings.catch_warnings():
-    warnings.filterwarnings('error')
-    try:
-        vis = utils.VisdomPlotter(env_name = 'Plot Monitor')
-        print("Visdom session detected !")
-    except Warning: 
-        print("No visdom session detected !")
-        vis = False
-        
+import tqdm
 
 if __name__ == '__main__':
     
@@ -54,18 +38,18 @@ if __name__ == '__main__':
                         dest='model',
                         help='which model to load : monet or slot_att')
 
-    parser.add_argument("-s",
-                        "--save_data", 
-                        help="whether or not we save the training data",
-                        action="store_true")
+    parser.add_argument('-n',
+                        '--num_run',
+                        type=int,
+                        default=5,
+                        dest='num_run',
+                        help='number of run to execute !')
     
     args = parser.parse_args()
-    
-    args.config = os.path.join('config', args.config)
-    
-    if 'unsupervised' in args.config: 
-        train.unsupervised_experiment(args, vis)
-    else:
-        train.supervised_experiment(args, vis)
+
+    for run in tqdm.tqdm(range(args.num_run)):
+        os.system(f'python main.py -c {args.config} -d {args.dataset} -p {args.prediction} -m {args.model} -s')
+        
+
     
 
