@@ -262,12 +262,15 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                                     vis.plotline('rela_precision', 'no_contact', 'Rela Precision', global_step, rela_no_contact_prec)
                                 except:
                                     pass
+                                print('Rela Precision : %.3f ; contact : %.3f ; no contact : %.3f' % (rela_precision, rela_contact_prec, rela_no_contact_prec))
+                            else:
+                                print('Rela Precision : %.3f' % (rela_precision))
 
                             try:
                                 vis.plotline('rela_precision', 'rela', 'Rela Precision', global_step, rela_precision)
                             except:
                                 pass
-                            print('Rela Precision : %.3f ; contact : %.3f ; no contact : %.3f' % (rela_precision, rela_contact_prec, rela_no_contact_prec))
+                            
                             print('alpha : %.3f' % (model.alpha))
 
                         ap = [utils.average_precision(output.detach().cpu().numpy(), labels['carac_labels'].detach().cpu().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
