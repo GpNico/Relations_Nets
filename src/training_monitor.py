@@ -24,6 +24,8 @@ class TrainingMonitor:
         self.size_prec = []
         self.overall_prec = []
         self.rela_prec = []
+        self.rela_contact_prec = []
+        self.rela_no_contact_prec = []
 
 
     def process_targets(self, target, data):
@@ -192,6 +194,10 @@ class TrainingMonitor:
 
         self.rela_prec.append(rela_count/num_rela)
 
+        if 'contact' in self.pred:
+            self.rela_contact_prec.append(rela_contact_count/num_rela_contact)
+            self.rela_no_contact_prec.append(rela_no_contact_count/num_rela_no_contact)
+
         cm_rela= confusion_matrix(rela_true, rela_pred)
 
         metrics = {'rela_prec': rela_count/num_rela,
@@ -228,7 +234,9 @@ class TrainingMonitor:
                      'shape_prec': self.shape_prec,
                      'size_prec': self.size_prec,
                      'overall_prec': self.overall_prec,
-                     'rela_prec': self.rela_prec}
+                     'rela_prec': self.rela_prec,
+                     'rela_contact_prec': self.rela_contact_prec,
+                     'rela_no_contact_prec': self.rela_no_contact_prec}
 
         #Dump
         filename = 'carac_experiment'
