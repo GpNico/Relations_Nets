@@ -218,13 +218,13 @@ class MultiObjectDataset(Dataset):
         # they might have different sizes)
         self.x = torch.from_numpy(x[indices])
         
-        """
+        
         try:
             labels.pop('text', None)
-            labels.pop('brut', None)
+            labels.pop('vertices', None)
         except:
             print("No text to pop !")
-        """
+        
         self.labels = self._labels_to_tensorlist(labels, indices)
 
 

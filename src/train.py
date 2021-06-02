@@ -173,15 +173,12 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
             #std_init = 0.01
             #nn.init.normal_(w, mean=0., std=std_init)
         print('Initialized parameters')
-        
-    output_to_title = utils.import_from_path(conf['prediction'][pred]['output_to_title']['filepath'],
-                                             conf['prediction'][pred]['output_to_title']['fct'])
                                              
     get_ground_truth = utils.import_from_path(conf['prediction'][pred]['get_ground_truth']['filepath'],
                                               conf['prediction'][pred]['get_ground_truth']['fct'])
 
 
-    training_monitor = TrainingMonitor(dataset)
+    training_monitor = TrainingMonitor(pred, dataset)
 
 
     base_learning_rate = conf['params']['learning_rate']
@@ -254,12 +251,23 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                         print('Carac Precision : shape %.3f ; size %.3f ; color %.3f' % (shape_precision, size_precision, color_precision))
 
                         if 'rela' in pred:
-                            rela_precision = training_monitor.get_rela_precision(dict, labels['rela_labels'])
+                            metric_rela = training_monitor.get_rela_precision(dict, labels['rela_labels'])
+                            rela_precision = metric_rela['rela_prec']
+
+                            if 'contact' in pred:
+                                rela_contact_prec = metric_rela['rela_contact_prec']
+                                rela_no_contact_prec = metric_rela['rela_no_contact_prec']
+                                try:
+                                    vis.plotline('rela_precision', 'contact', 'Rela Precision', global_step, rela_contact_prec)
+                                    vis.plotline('rela_precision', 'no_contact', 'Rela Precision', global_step, rela_no_contact_prec)
+                                except:
+                                    pass
+
                             try:
-                                vis.plotline('carac_precision', 'rela', 'Carac Precision', global_step, rela_precision)
+                                vis.plotline('rela_precision', 'rela', 'Rela Precision', global_step, rela_precision)
                             except:
                                 pass
-                            print('Rela Precision : %.3f' % (rela_precision))
+                            print('Rela Precision : %.3f ; contact : %.3f ; no contact : %.3f' % (rela_precision, rela_contact_prec, rela_no_contact_prec))
                             print('alpha : %.3f' % (model.alpha))
 
                         ap = [utils.average_precision(output.detach().cpu().numpy(), labels['carac_labels'].detach().cpu().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]

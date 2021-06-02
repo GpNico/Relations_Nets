@@ -22,7 +22,7 @@ datasets:
             warmup_steps: 1000
             decay_rate: 0.5
             decay_steps: 50000
-            num_epochs: 250
+            num_epochs: 500
             load_parameters: 0
             num_slots: 4
             num_blocks: 5
@@ -35,9 +35,6 @@ datasets:
                 dim_points: 19
                 checkpoint_file: ./checkpoints/multi_run_multi_sprites_supervised_all_carac.ckpt
                 filepath: ./data/multi_dsprites_all_carac.npz
-                output_to_title:
-                    filepath: src/preprocess.py
-                    fct: ott_multi_sprite_all_carac
                 get_ground_truth:
                     filepath: src/preprocess.py
                     fct: ggt_multi_sprite_all_carac
@@ -47,12 +44,18 @@ datasets:
                 dim_rela: 3
                 checkpoint_file: ./checkpoints/multi_sprites_supervised_rela_base.ckpt
                 filepath: ./data/multi_dsprites_rela_base.npz
-                output_to_title:
-                    filepath: src/preprocess.py
-                    fct: ott_multi_sprite_all_carac
                 get_ground_truth:
                     filepath: src/preprocess.py
                     fct: gtt_multi_sprite_rela_base
+
+            rela_contact:
+                dim_points: 19
+                dim_rela: 8
+                checkpoint_file: ./checkpoints/multi_sprites_supervised_rela_contact.ckpt
+                filepath: ./data/multi_dsprites_rela_contact.npz
+                get_ground_truth:
+                    filepath: src/preprocess.py
+                    fct: gtt_multi_sprite_rela_contact
                 
               
               
@@ -89,9 +92,6 @@ datasets:
                     dim_points: 19
                     checkpoint_file: ./checkpoints/slot_clevr_supervised_all_carac.ckpt
                     filepath: ./data/CLEVR_v1.0/
-                    output_to_title:
-                        filepath: src/preprocess.py
-                        fct: ott_clevr_all_carac
                     get_ground_truth:
                         filepath: src/preprocess.py
                         fct: ggt_clevr_all_carac
@@ -116,7 +116,7 @@ datasets:
             warmup_steps: 1000
             decay_rate: 0.5
             decay_steps: 50000
-            num_epochs: 500
+            num_epochs: 200
             load_parameters: 0
             num_slots: 4
             num_blocks: 5
@@ -129,9 +129,6 @@ datasets:
                 dim_points: 18
                 checkpoint_file: ./checkpoints/slot_multi_sprites_supervised_equal_carac.ckpt
                 filepath: ./data/multi_dsprites_equal_carac.npz
-                output_to_title:
-                    filepath: src/preprocess.py
-                    fct: ott_multi_sprite_all_carac
                 get_ground_truth:
                     filepath: src/preprocess.py
                     fct: ggt_multi_sprite_equal_carac

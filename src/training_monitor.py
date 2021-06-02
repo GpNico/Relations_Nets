@@ -13,9 +13,10 @@ from sklearn.metrics import confusion_matrix
 
 class TrainingMonitor:
 
-    def __init__(self, dataset = 'clevr'):
+    def __init__(self, pred, dataset = 'clevr'):
         
         self.dataset = dataset
+        self.pred = pred
         self.sigmas = None
 
         self.color_prec = []
@@ -135,6 +136,15 @@ class TrainingMonitor:
         targets = targets.detach().cpu().numpy()
         
         rela_count = 0
+
+        if 'contact' in self.pred:
+            rela_contact_count, rela_no_contact_count = 0, 0
+            num_rela_contact, num_rela_no_contact = 0, 0
+        else:
+            rela_contact_count, rela_no_contact_count = 0, 0
+            num_rela_contact, num_rela_no_contact = 1, 1
+
+        rela_true, rela_pred = [], []
         
         num_rela = 0
         
@@ -157,15 +167,39 @@ class TrainingMonitor:
                 
                 if target.max() > 0: #there is a relation
                     num_rela += 1
-                    
+
                     pred_idx = np.argmax(pred)
                     target_idx = np.argmax(target)
+
+                    if 'contact' in self.pred:
+                        if target_idx in [0,1,2,3]:
+                            num_rela_no_contact += 1
+                        elif target_idx in [4,5,6,7]:
+                            num_rela_contact += 1
+
+                    rela_true.append(target_idx)
+                    rela_pred.append(pred_idx)
+
                     if pred_idx == target_idx:
                         rela_count += 1
+                        if 'contact' in self.pred:
+                            if target_idx in [0,1,2,3]:
+                                rela_no_contact_count += 1
+                            elif target_idx in [4,5,6,7]:
+                                rela_contact_count += 1
+
+                            
 
         self.rela_prec.append(rela_count/num_rela)
+
+        cm_rela= confusion_matrix(rela_true, rela_pred)
+
+        metrics = {'rela_prec': rela_count/num_rela,
+                  'confusion_matrix': cm_rela,
+                  'rela_contact_prec': rela_contact_count/num_rela_contact,
+                  'rela_no_contact_prec': rela_no_contact_count/num_rela_no_contact}
                                        
-        return rela_count/num_rela
+        return metrics
 
 
     def get_alignement_indices(self, preds, targets):
