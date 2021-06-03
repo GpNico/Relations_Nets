@@ -19,6 +19,8 @@ from src.training_monitor import TrainingMonitor
 #                               #
 #################################
 
+#To reproduce results
+#torch.manual_seed(7)
 
 def unsupervised_experiment(args, vis):
     
@@ -73,7 +75,7 @@ def supervised_experiment(args, vis):
     
     trainloader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=True, num_workers=0)
     
-    valoader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=False, num_workers=0)
+    valoader = DataLoader(valset, batch_size=config['params']['batch_size'], shuffle=True, num_workers=0)
     
     #Create Model
     if 'rela' in args.prediction:
@@ -199,6 +201,8 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
     scheduler = optim.lr_scheduler.LambdaLR(optimizer, learning_rate_scheduler)
     criterion = utils.hungarian_huber_loss
 
+    success_flag = False
+
     for epoch in range(conf['params']['num_epochs']):
         running_loss = 0.0
         for i, data in enumerate(trainloader):
@@ -226,7 +230,7 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                     except:
                         pass
 
-                    if global_step % 250 == 0:
+                    if global_step % 50 == 0:
 
                         model.eval()
 
@@ -235,10 +239,22 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                         dict = model(images.cuda())
                         output = dict['outputs_slot']
 
-                        output = dict['outputs_slot']
                         metrics_dict = training_monitor.get_carac_precision(output, labels['carac_labels'])
                         color_precision, shape_precision, size_precision = metrics_dict['precision']
                         overall_precision = metrics_dict['overall_precision']
+
+                        ################################
+                        #DEBUGGING
+
+                        #outputs_mean, targets_mean, outputs_mean_no_obj = metrics_dict['pred_mean']
+                        #vis.plotline('pred_av', 'pred av', 'debbug', global_step, outputs_mean)
+                        #vis.plotline('pred_av', 'target av', 'debbug', global_step, targets_mean)
+                        #vis.plotline('pred_av', 'pred av no obj', 'debbug', global_step, outputs_mean_no_obj)
+                        ################################
+
+                        if shape_precision > 0.85 and size_precision > 0.8:
+                            success_flag = True
+                            break
                         
                         try:
                             vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_precision)
@@ -289,7 +305,16 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                 
             torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'])
 
+            ##############################
+            #DEBUGGING
+            if success_flag:
+                break
+
     if save_data:
+        if success_flag:
+            training_monitor.debbug.append({'success': 1, 'iter': global_step})
+        else:
+            training_monitor.debbug.append({'success': 0, 'iter': global_step})
         training_monitor.save_to_pickle()
 
     print('training done')

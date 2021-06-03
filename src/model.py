@@ -430,7 +430,7 @@ class SlotAttentionClassifier(nn.Module):
 
         self.slot_attention = SlotAttention(num_slots = conf['num_slots'],
                                             dim = 64,
-                                            iters = 3)
+                                            iters = 7)
 
         self.mlp_classifier = nn.Sequential(nn.Linear(64, 64),
                                             nn.ReLU(),
