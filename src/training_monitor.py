@@ -27,10 +27,6 @@ class TrainingMonitor:
         self.rela_contact_prec = []
         self.rela_no_contact_prec = []
 
-        #########################
-        #DEBUGGING
-        self.debbug = []
-
 
     def process_targets(self, target, data):
         if data == 'multi_sprite':
@@ -76,9 +72,6 @@ class TrainingMonitor:
         shape_true, shape_pred = [], []
         size_true, size_pred = [], []
 
-        outputs_mean, targets_mean = [], []
-        outputs_mean_no_obj = []
-
         num_objs = 0
 
         sigmas = self.get_alignement_indices(preds, targets)
@@ -109,25 +102,12 @@ class TrainingMonitor:
                     size_true.append(target_object_size)
                     size_pred.append(pred_object_size)
 
-                    ####################################
-                    #DEBUGGING
-
-                    pred_av = np.sum(preds[k][sigmas[k][l]])
-                    target_av = np.sum(targets[k][l])
-                    outputs_mean.append(pred_av)
-                    targets_mean.append(target_av)
-
-                    ####################################
-
                     if pred_object_size == target_object_size:
                         size_count += 1
                     if pred_shape == target_shape:
                         shape_count += 1
                     if pred_color == target_color:
                         color_count += 1
-                else:
-                    #############################
-                    outputs_mean_no_obj.append(np.sum(preds[k][sigmas[k][l]]))
         
         cm_color = confusion_matrix(color_true, color_pred)
         cm_shape = confusion_matrix(shape_true, shape_pred)
@@ -141,8 +121,7 @@ class TrainingMonitor:
 
         metric = {'precision': (color_count/num_objs, shape_count/num_objs, size_count/num_objs),
                   'confusion_matrix': (cm_color, cm_shape, cm_size),
-                  'overall_precision': pred_objs/num_objs,
-                  'pred_mean': (np.array(outputs_mean).mean(), np.array(targets_mean).mean(), np.array(outputs_mean_no_obj).mean())}
+                  'overall_precision': pred_objs/num_objs}
 
         return metric
         
@@ -258,8 +237,7 @@ class TrainingMonitor:
                      'overall_prec': self.overall_prec,
                      'rela_prec': self.rela_prec,
                      'rela_contact_prec': self.rela_contact_prec,
-                     'rela_no_contact_prec': self.rela_no_contact_prec,
-                     'debbug': self.debbug}
+                     'rela_no_contact_prec': self.rela_no_contact_prec}
 
         #Dump
         filename = 'debbug_experiment'

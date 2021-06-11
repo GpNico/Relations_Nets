@@ -87,7 +87,8 @@ def supervised_experiment(args, vis):
                                          config['params']['width'],
                                          config['prediction'][args.prediction]['dim_points'], 
                                          config['prediction'][args.prediction]['dim_rela'], 
-                                         object_classifier = args.model).cuda()
+                                         object_classifier = args.model,
+                                         load_params = config['prediction'][args.prediction]).cuda()
         
     else:
         print("Not Predicting Relations ...")
@@ -168,12 +169,7 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
         print('Restored parameters from', conf['prediction'][pred]['checkpoint_file'])
     else:
         for name, w in model.named_parameters():
-            #print(name)
-            #print("mean ", torch.mean(w).item())
-            #print("std ", torch.std(w).item())
             continue
-            #std_init = 0.01
-            #nn.init.normal_(w, mean=0., std=std_init)
         print('Initialized parameters')
                                              
     get_ground_truth = utils.import_from_path(conf['prediction'][pred]['get_ground_truth']['filepath'],
@@ -201,8 +197,6 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
     scheduler = optim.lr_scheduler.LambdaLR(optimizer, learning_rate_scheduler)
     criterion = utils.hungarian_huber_loss
 
-    success_flag = False
-
     for epoch in range(conf['params']['num_epochs']):
         running_loss = 0.0
         for i, data in enumerate(trainloader):
@@ -218,103 +212,15 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
             scheduler.step()
 
             with torch.no_grad():
-                if global_step % conf['params']['vis_every'] == 0:
+                utils.training_loop_validation(model, conf, global_step, epoch, running_loss, vis, valoader, get_ground_truth, pred, training_monitor, dataset, optimizer)
 
-
-                    print('[%d, %5d] loss: %.3f' %
-                          (epoch + 1, global_step, running_loss))
-                    
-                    try:
-                        vis.plotline('loss', 'train', 'Loss', global_step, running_loss)
-                        vis.plotline('lr', 'train', 'Learning Rate', global_step, optimizer.param_groups[0]['lr'])
-                    except:
-                        pass
-
-                    if global_step % 50 == 0:
-
-                        model.eval()
-
-                        images, labels = iter(valoader).next()
-                        labels = get_ground_truth(labels, conf, pred)
-                        dict = model(images.cuda())
-                        output = dict['outputs_slot']
-
-                        metrics_dict = training_monitor.get_carac_precision(output, labels['carac_labels'])
-                        color_precision, shape_precision, size_precision = metrics_dict['precision']
-                        overall_precision = metrics_dict['overall_precision']
-
-                        ################################
-                        #DEBUGGING
-
-                        #outputs_mean, targets_mean, outputs_mean_no_obj = metrics_dict['pred_mean']
-                        #vis.plotline('pred_av', 'pred av', 'debbug', global_step, outputs_mean)
-                        #vis.plotline('pred_av', 'target av', 'debbug', global_step, targets_mean)
-                        #vis.plotline('pred_av', 'pred av no obj', 'debbug', global_step, outputs_mean_no_obj)
-                        ################################
-
-                        if shape_precision > 0.85 and size_precision > 0.8:
-                            success_flag = True
-                            break
-                        
-                        try:
-                            vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_precision)
-                            vis.plotline('carac_precision', 'size', 'Carac Precision', global_step, size_precision)
-                            vis.plotline('carac_precision', 'color', 'Carac Precision', global_step, color_precision)
-                            vis.plotline('carac_precision', 'overall', 'Carac Precision', global_step, overall_precision)
-                        except:
-                            pass
-                        
-                        print('Carac Precision : shape %.3f ; size %.3f ; color %.3f' % (shape_precision, size_precision, color_precision))
-
-                        if 'rela' in pred:
-                            metric_rela = training_monitor.get_rela_precision(dict, labels['rela_labels'])
-                            rela_precision = metric_rela['rela_prec']
-
-                            if 'contact' in pred:
-                                rela_contact_prec = metric_rela['rela_contact_prec']
-                                rela_no_contact_prec = metric_rela['rela_no_contact_prec']
-                                try:
-                                    vis.plotline('rela_precision', 'contact', 'Rela Precision', global_step, rela_contact_prec)
-                                    vis.plotline('rela_precision', 'no_contact', 'Rela Precision', global_step, rela_no_contact_prec)
-                                except:
-                                    pass
-                                print('Rela Precision : %.3f ; contact : %.3f ; no contact : %.3f' % (rela_precision, rela_contact_prec, rela_no_contact_prec))
-                            else:
-                                print('Rela Precision : %.3f' % (rela_precision))
-
-                            try:
-                                vis.plotline('rela_precision', 'rela', 'Rela Precision', global_step, rela_precision)
-                            except:
-                                pass
-                            
-                            print('alpha : %.3f' % (model.alpha))
-
-                        ap = [utils.average_precision(output.detach().cpu().numpy(), labels['carac_labels'].detach().cpu().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
-                
-                        try:
-                            vis.plotline('AP', 'inf', 'Average Precision', global_step, ap[0] )
-                            vis.plotline('AP', '1', 'Average Precision', global_step, ap[1] )
-                        except:
-                            pass
-                
-                        print('AP : inf %.3f ; 1. %.3f ; 0.5 %.3f' % (ap[0], ap[1], ap[2]))
-                        
-                        model.train() 
             
             global_step += 1
                 
-            torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'])
+        torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'])
 
-            ##############################
-            #DEBUGGING
-            if success_flag:
-                break
 
     if save_data:
-        if success_flag:
-            training_monitor.debbug.append({'success': 1, 'iter': global_step})
-        else:
-            training_monitor.debbug.append({'success': 0, 'iter': global_step})
         training_monitor.save_to_pickle()
 
     print('training done')

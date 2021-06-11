@@ -154,10 +154,10 @@ def ggt_clevr_all_carac(labels, conf, pred):
             elif scale == 1:
                 ground_truth[k, l, 4] = 1
                 
-            scale = carac_material[k][l]
-            if scale == 0:
+            material = carac_material[k][l]
+            if material == 0:
                 ground_truth[k, l, 5] = 1
-            elif scale == 1:
+            elif material == 1:
                 ground_truth[k, l, 6] = 1
                 
             color = carac_color[k][l]

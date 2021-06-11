@@ -42,6 +42,8 @@ datasets:
             rela_base:
                 dim_points: 19
                 dim_rela: 3
+                obj_class_checkpoint_file: ./checkpoints/saved/slot_multi_sprites_supervised_all_carac.ckpt
+                load_obj_class_parameters: 1 
                 checkpoint_file: ./checkpoints/multi_sprites_supervised_rela_base.ckpt
                 filepath: ./data/multi_dsprites_rela_base.npz
                 get_ground_truth:
@@ -51,6 +53,8 @@ datasets:
             rela_contact:
                 dim_points: 19
                 dim_rela: 8
+                obj_class_checkpoint_file: ./checkpoints/saved/slot_multi_sprites_supervised_all_carac.ckpt
+                load_obj_class_parameters: 1 
                 checkpoint_file: ./checkpoints/multi_sprites_supervised_rela_contact.ckpt
                 filepath: ./data/multi_dsprites_rela_contact.npz
                 get_ground_truth:

@@ -430,7 +430,7 @@ class SlotAttentionClassifier(nn.Module):
 
         self.slot_attention = SlotAttention(num_slots = conf['num_slots'],
                                             dim = 64,
-                                            iters = 7)
+                                            iters = 3)
 
         self.mlp_classifier = nn.Sequential(nn.Linear(64, 64),
                                             nn.ReLU(),
@@ -474,20 +474,30 @@ class SlotAttentionClassifier(nn.Module):
 
 
 class RelationsPredictor(nn.Module):
-    def __init__(self, conf, height, width, dim_points, dim_rela, object_classifier = 'slot_att'):
+    def __init__(self, conf, height, width, dim_points, dim_rela, object_classifier = 'slot_att', load_params = None):
         super().__init__()
         
         self.conf = conf
+
+        self.sparse_loss = True
         
         self.alpha = 0.
+        self.cap_alpha = 0.6
         self.step = 0
         self.N_alpha = 20000
-        self.epsilon_alpha = 10**(-5)
+        self.epsilon_alpha = 10**(-4)
         
         if object_classifier == 'monet':
             self.obj_class = MonetClassifier(conf, height, width, dim_points)
         elif object_classifier == 'slot_att':
             self.obj_class = SlotAttentionClassifier(conf, height, width, dim_points)
+
+        if load_params['load_obj_class_parameters']:
+            print("Loading Checkpoint for Object Classifier ... ")
+            obj_class_state_dict = load_params['obj_class_checkpoint_file']
+            self.obj_class.load_state_dict(torch.load(obj_class_state_dict))
+
+            self.N_alpha = 0 #Training directly on relations
             
         
         self.mlp_rela = nn.Sequential(nn.Linear(2*64, 64),
@@ -558,9 +568,15 @@ class RelationsPredictor(nn.Module):
         loss_rela_class = 0.
         
         for i in range(num_slots*(num_slots-1)):
-            loss_rela_class += torch.mean(loss_function_2(outputs_rela[:, i], 
-                                                         rela_labels[np.arange(batch_size), sigmas_inv[:,index_to_pair[i][0]], sigmas_inv[:,index_to_pair[i][1]]]),
-                                         dim = -1)
+            if not(self.sparse_loss):
+                loss_rela_class += torch.mean(loss_function_2(outputs_rela[:, i], 
+                                                             rela_labels[np.arange(batch_size), sigmas_inv[:,index_to_pair[i][0]], sigmas_inv[:,index_to_pair[i][1]]]),
+                                             dim = -1)
+            else:
+                loss_rela_class += torch.mean(loss_function_2(outputs_rela[:, i], 
+                                                             rela_labels[np.arange(batch_size), sigmas_inv[:,index_to_pair[i][0]], sigmas_inv[:,index_to_pair[i][1]]]),
+                                             dim = -1) * torch.sum(rela_labels[np.arange(batch_size), sigmas_inv[:,index_to_pair[i][0]], sigmas_inv[:,index_to_pair[i][1]]], axis = 1)
+
         loss_rela_class = torch.mean(loss_rela_class)
         
         #add the losses
@@ -570,7 +586,7 @@ class RelationsPredictor(nn.Module):
         #Update Alpha
         
         self.step += 1
-        if self.step > self.N_alpha:
+        if self.alpha <= self.cap_alpha and self.step > self.N_alpha:
            self.alpha += self.epsilon_alpha
        
         return dict, loss

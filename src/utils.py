@@ -258,3 +258,75 @@ def color_name(arr):
         elif y == 0 and z == 255:
             return 'blue'
 
+
+def training_loop_validation(model, conf, global_step, epoch, running_loss, vis, valoader, get_ground_truth, pred, training_monitor, dataset, optimizer):
+    if global_step % conf['params']['vis_every'] == 0:
+
+
+        print('[%d, %5d] loss: %.3f' % (epoch + 1, global_step, running_loss))
+                    
+        try:
+            vis.plotline('loss', 'train', 'Loss', global_step, running_loss)
+            #vis.plotline('lr', 'train', 'Learning Rate', global_step, optimizer.param_groups[0]['lr'])
+        except:
+            pass
+
+        if global_step % 500 == 0:
+
+            model.eval()
+
+            images, labels = iter(valoader).next()
+            labels = get_ground_truth(labels, conf, pred)
+            dict = model(images.cuda())
+            output = dict['outputs_slot']
+
+            metrics_dict = training_monitor.get_carac_precision(output, labels['carac_labels'])
+            color_precision, shape_precision, size_precision = metrics_dict['precision']
+            overall_precision = metrics_dict['overall_precision']
+
+                        
+            try:
+                vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_precision)
+                vis.plotline('carac_precision', 'size', 'Carac Precision', global_step, size_precision)
+                vis.plotline('carac_precision', 'color', 'Carac Precision', global_step, color_precision)
+                vis.plotline('carac_precision', 'overall', 'Carac Precision', global_step, overall_precision)
+            except:
+                pass
+                        
+            print('Carac Precision : shape %.3f ; size %.3f ; color %.3f' % (shape_precision, size_precision, color_precision))
+
+            if 'rela' in pred:
+                metric_rela = training_monitor.get_rela_precision(dict, labels['rela_labels'])
+                rela_precision = metric_rela['rela_prec']
+
+                if 'contact' in pred:
+                    rela_contact_prec = metric_rela['rela_contact_prec']
+                    rela_no_contact_prec = metric_rela['rela_no_contact_prec']
+                    try:
+                        vis.plotline('rela_precision', 'contact', 'Rela Precision', global_step, rela_contact_prec)
+                        vis.plotline('rela_precision', 'no_contact', 'Rela Precision', global_step, rela_no_contact_prec)
+                    except:
+                        pass
+                    print('Rela Precision : %.3f ; contact : %.3f ; no contact : %.3f' % (rela_precision, rela_contact_prec, rela_no_contact_prec))
+                else:
+                    print('Rela Precision : %.3f' % (rela_precision))
+
+                try:
+                    vis.plotline('rela_precision', 'rela', 'Rela Precision', global_step, rela_precision)
+                except:
+                    pass
+                            
+                print('alpha : %.3f' % (model.alpha))
+
+            ap = [average_precision(output.detach().cpu().numpy(), labels['carac_labels'].detach().cpu().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
+                
+            try:
+                vis.plotline('AP', 'inf', 'Average Precision', global_step, ap[0] )
+                vis.plotline('AP', '1', 'Average Precision', global_step, ap[1] )
+            except:
+                pass
+                
+            print('AP : inf %.3f ; 1. %.3f ; 0.5 %.3f' % (ap[0], ap[1], ap[2]))
+                        
+            model.train() 
+
