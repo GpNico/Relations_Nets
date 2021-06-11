@@ -240,7 +240,7 @@ class TrainingMonitor:
                      'rela_no_contact_prec': self.rela_no_contact_prec}
 
         #Dump
-        filename = 'debbug_experiment'
+        filename = 'contact_experiment'
                 
         if not(os.path.exists(filename)):
             print("Creating Save File ...")
