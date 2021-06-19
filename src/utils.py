@@ -271,7 +271,7 @@ def training_loop_validation(model, conf, global_step, epoch, running_loss, vis,
         except:
             pass
 
-        if global_step % 500 == 0:
+        if global_step % 250 == 0:
 
             model.eval()
 
@@ -281,40 +281,30 @@ def training_loop_validation(model, conf, global_step, epoch, running_loss, vis,
             output = dict['outputs_slot']
 
             metrics_dict = training_monitor.get_carac_precision(output, labels['carac_labels'])
-            color_precision, shape_precision, size_precision = metrics_dict['precision']
-            overall_precision = metrics_dict['overall_precision']
-
+            carac_names = ['color', 'shape', 'size']
+            for k in range(len(metrics_dict['carac_precision'])):
+                try:
+                    vis.plotline('carac_precision', carac_names[k], 'Carac Precision', global_step, metrics_dict['carac_precision'][k])
+                    vis.plotline('carac_recall', carac_names[k], 'Carac Recall', global_step, metrics_dict['carac_recall'][k])
+                    vis.plotline('carac_f1', carac_names[k], 'Carac F1', global_step, metrics_dict['carac_f1'][k])
+                except:
+                    pass
                         
-            try:
-                vis.plotline('carac_precision', 'shape', 'Carac Precision', global_step, shape_precision)
-                vis.plotline('carac_precision', 'size', 'Carac Precision', global_step, size_precision)
-                vis.plotline('carac_precision', 'color', 'Carac Precision', global_step, color_precision)
-                vis.plotline('carac_precision', 'overall', 'Carac Precision', global_step, overall_precision)
-            except:
-                pass
-                        
-            print('Carac Precision : shape %.3f ; size %.3f ; color %.3f' % (shape_precision, size_precision, color_precision))
+            print('Carac Precision : shape %.3f ; size %.3f ; color %.3f' % (metrics_dict['carac_precision'][0], metrics_dict['carac_precision'][1], metrics_dict['carac_precision'][2]))
+            print('Carac Recall : shape %.3f ; size %.3f ; color %.3f' % (metrics_dict['carac_recall'][0], metrics_dict['carac_recall'][1], metrics_dict['carac_recall'][2]))
+            print('Carac F1 : shape %.3f ; size %.3f ; color %.3f' % (metrics_dict['carac_f1'][0], metrics_dict['carac_f1'][1], metrics_dict['carac_f1'][2]))
 
             if 'rela' in pred:
                 metric_rela = training_monitor.get_rela_precision(dict, labels['rela_labels'])
-                rela_precision = metric_rela['rela_prec']
-
-                if 'contact' in pred:
-                    rela_contact_prec = metric_rela['rela_contact_prec']
-                    rela_no_contact_prec = metric_rela['rela_no_contact_prec']
+                dim_rela = metric_rela['rela_tp'].shape[0]
+                for k in range(dim_rela):
+                    print("rela n°", k, " ; precision : ", metric_rela['rela_precision'][k], " ; recall : ", metric_rela['rela_recall'][k], " ; f1 : ", metric_rela['rela_f1'][k])
                     try:
-                        vis.plotline('rela_precision', 'contact', 'Rela Precision', global_step, rela_contact_prec)
-                        vis.plotline('rela_precision', 'no_contact', 'Rela Precision', global_step, rela_no_contact_prec)
+                        vis.plotline('rela_precision ', str(k), 'Rela Precision', global_step, metric_rela['rela_precision'][k])
+                        vis.plotline('rela_recall ', str(k), 'Rela Recall', global_step, metric_rela['rela_recall'][k])
+                        vis.plotline('rela_f1 ', str(k), 'Rela F1', global_step, metric_rela['rela_f1'][k])
                     except:
                         pass
-                    print('Rela Precision : %.3f ; contact : %.3f ; no contact : %.3f' % (rela_precision, rela_contact_prec, rela_no_contact_prec))
-                else:
-                    print('Rela Precision : %.3f' % (rela_precision))
-
-                try:
-                    vis.plotline('rela_precision', 'rela', 'Rela Precision', global_step, rela_precision)
-                except:
-                    pass
                             
                 print('alpha : %.3f' % (model.alpha))
 
@@ -322,11 +312,11 @@ def training_loop_validation(model, conf, global_step, epoch, running_loss, vis,
                 
             try:
                 vis.plotline('AP', 'inf', 'Average Precision', global_step, ap[0] )
-                vis.plotline('AP', '1', 'Average Precision', global_step, ap[1] )
+                vis.plotline('AP', '0.25', 'Average Precision', global_step, ap[3] )
             except:
                 pass
                 
-            print('AP : inf %.3f ; 1. %.3f ; 0.5 %.3f' % (ap[0], ap[1], ap[2]))
+            print('AP : inf %.3f ; 0.5 %.3f ; 0.25 %.3f' % (ap[0], ap[2], ap[3]))
                         
             model.train() 
 

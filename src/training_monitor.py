@@ -8,7 +8,7 @@ import scipy.optimize
 import pickle
 import os
 
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 
 
 class TrainingMonitor:
@@ -19,14 +19,9 @@ class TrainingMonitor:
         self.pred = pred
         self.sigmas = None
 
-        self.color_prec = []
-        self.shape_prec = []
-        self.size_prec = []
-        self.overall_prec = []
-        self.rela_prec = []
-        self.rela_contact_prec = []
-        self.rela_no_contact_prec = []
-
+        self.rela_precision_list = []
+        self.rela_recall_list = []
+        self.rela_f1_list = []
 
     def process_targets(self, target, data):
         if data == 'multi_sprite':
@@ -62,17 +57,9 @@ class TrainingMonitor:
             precision : float
         """
 
-        color_count = 0
-        shape_count = 0
-        size_count = 0
-
-        pred_objs = 0
-
         color_true, color_pred = [], []
         shape_true, shape_pred = [], []
         size_true, size_pred = [], []
-
-        num_objs = 0
 
         sigmas = self.get_alignement_indices(preds, targets)
         
@@ -87,13 +74,10 @@ class TrainingMonitor:
 
                 if targets[k][l].max() > 0.: #There is an object in this slot
 
-                    num_objs += 1
-
                     (_, pred_object_size, pred_material, pred_shape, pred_color, _) = self.process_targets(preds[k][sigmas[k][l]], self.dataset)
                     (_, target_object_size, target_material, target_shape, target_color, _) = self.process_targets(targets[k][l], self.dataset)
 
-                    if (pred_object_size, pred_material, pred_shape, pred_color) == (target_object_size, target_material, target_shape, target_color):
-                        pred_objs += 1
+                    #if (pred_object_size, pred_material, pred_shape, pred_color) == (target_object_size, target_material, target_shape, target_color):
 
                     color_true.append(target_color)
                     color_pred.append(pred_color)
@@ -102,26 +86,19 @@ class TrainingMonitor:
                     size_true.append(target_object_size)
                     size_pred.append(pred_object_size)
 
-                    if pred_object_size == target_object_size:
-                        size_count += 1
-                    if pred_shape == target_shape:
-                        shape_count += 1
-                    if pred_color == target_color:
-                        color_count += 1
         
         cm_color = confusion_matrix(color_true, color_pred)
         cm_shape = confusion_matrix(shape_true, shape_pred)
         cm_size = confusion_matrix(size_true, size_pred)
 
-        self.color_prec.append(color_count/num_objs)
-        self.shape_prec.append(shape_count/num_objs)
-        self.size_prec.append(size_count/num_objs)
-        self.overall_prec.append(pred_objs/num_objs)
+        color_precision, color_recall, color_f1, _ = precision_recall_fscore_support(color_true, color_pred, average='macro')
+        shape_precision, shape_recall, shape_f1, _ = precision_recall_fscore_support(shape_true, shape_pred, average='macro')
+        size_precision, size_recall, size_f1, _ = precision_recall_fscore_support(size_true, size_pred, average='macro')
 
-
-        metric = {'precision': (color_count/num_objs, shape_count/num_objs, size_count/num_objs),
-                  'confusion_matrix': (cm_color, cm_shape, cm_size),
-                  'overall_precision': pred_objs/num_objs}
+        metric = {'confusion_matrix': (cm_color, cm_shape, cm_size),
+                  'carac_precision': (color_precision, shape_precision, size_precision),
+                  'carac_recall': (color_recall, shape_recall, size_recall),
+                  'carac_f1': (color_f1, shape_f1, size_f1)}
 
         return metric
         
@@ -138,22 +115,15 @@ class TrainingMonitor:
         index_to_pair = outputs['index_to_pair']
         targets = targets.detach().cpu().numpy()
         
-        rela_count = 0
-
-        if 'contact' in self.pred:
-            rela_contact_count, rela_no_contact_count = 0, 0
-            num_rela_contact, num_rela_no_contact = 0, 0
-        else:
-            rela_contact_count, rela_no_contact_count = 0, 0
-            num_rela_contact, num_rela_no_contact = 1, 1
-
-        rela_true, rela_pred = [], []
-        
-        num_rela = 0
-        
         sigmas = self.sigmas
         
         batch_size, num_slots, _, dim_rela = targets.shape
+
+        ####### COMPUTING METRIC #######
+        rela_tp = np.zeros(dim_rela)
+        rela_fp = np.zeros(dim_rela)
+        rela_fn = np.zeros(dim_rela)
+        rela_tn = np.zeros(dim_rela)
         
         #Computing sigma_inv
         sigmas_inv = np.zeros_like(sigmas)
@@ -169,42 +139,47 @@ class TrainingMonitor:
                 target = targets[n, sigmas_inv[n,index_to_pair[i][0]], sigmas_inv[n,index_to_pair[i][1]]]
                 
                 if target.max() > 0: #there is a relation
-                    num_rela += 1
+                
+                    pred_idx = np.where(pred > 0.5)[0]
+                    target_idx = np.where(target > 0.5)[0]
 
-                    pred_idx = np.argmax(pred)
-                    target_idx = np.argmax(target)
+                    for k in range(dim_rela):
+                        if k in pred_idx:
+                            if k in target_idx:
+                                rela_tp[k] += 1
+                            else:
+                                rela_fp[k] += 1
+                        else:
+                            if k in target_idx:
+                                rela_fn[k] += 1
+                            else:
+                                rela_tn[k] += 1
+                                
+        #Precision
+        rela_precision = np.zeros(dim_rela)
+        rela_recall = np.zeros(dim_rela)
+        rela_f1 = np.zeros(dim_rela)
+        for k in range(dim_rela):
+            if rela_tp[k] != 0:
+                rela_precision[k] = rela_tp[k]/(rela_tp[k] + rela_fp[k])
+                rela_recall[k] = rela_tp[k]/(rela_tp[k] + rela_fn[k])
+                rela_f1[k] = rela_tp[k]/(rela_tp[k] + 0.5*(rela_fp[k] + rela_fn[k]))
+            else:
+                rela_precision[k] = 0
+                rela_recall[k] = 0
+                rela_f1[k] = 0
 
-                    if 'contact' in self.pred:
-                        if target_idx in [0,1,2,3]:
-                            num_rela_no_contact += 1
-                        elif target_idx in [4,5,6,7]:
-                            num_rela_contact += 1
+        metrics = {'rela_tp': rela_tp,
+                   'rela_fp': rela_fp,
+                   'rela_fn': rela_fn,
+                   'rela_tn': rela_tn,
+                   'rela_precision': rela_precision,
+                   'rela_recall': rela_recall,
+                   'rela_f1': rela_f1}
 
-                    rela_true.append(target_idx)
-                    rela_pred.append(pred_idx)
-
-                    if pred_idx == target_idx:
-                        rela_count += 1
-                        if 'contact' in self.pred:
-                            if target_idx in [0,1,2,3]:
-                                rela_no_contact_count += 1
-                            elif target_idx in [4,5,6,7]:
-                                rela_contact_count += 1
-
-                            
-
-        self.rela_prec.append(rela_count/num_rela)
-
-        if 'contact' in self.pred:
-            self.rela_contact_prec.append(rela_contact_count/num_rela_contact)
-            self.rela_no_contact_prec.append(rela_no_contact_count/num_rela_no_contact)
-
-        cm_rela= confusion_matrix(rela_true, rela_pred)
-
-        metrics = {'rela_prec': rela_count/num_rela,
-                  'confusion_matrix': cm_rela,
-                  'rela_contact_prec': rela_contact_count/num_rela_contact,
-                  'rela_no_contact_prec': rela_no_contact_count/num_rela_no_contact}
+        self.rela_precision_list.append(rela_precision)
+        self.rela_recall_list.append(rela_recall)
+        self.rela_f1_list.append(rela_f1)
                                        
         return metrics
 
@@ -231,16 +206,12 @@ class TrainingMonitor:
         
         #Data
 
-        dict_data = {'color_prec': self.color_prec,
-                     'shape_prec': self.shape_prec,
-                     'size_prec': self.size_prec,
-                     'overall_prec': self.overall_prec,
-                     'rela_prec': self.rela_prec,
-                     'rela_contact_prec': self.rela_contact_prec,
-                     'rela_no_contact_prec': self.rela_no_contact_prec}
+        dict_data = {'rela_precision': self.rela_precision_list,
+                     'rela_recall': self.rela_recall_list,
+                     'rela_f1': self.rela_f1_list}
 
         #Dump
-        filename = 'contact_experiment'
+        filename = 'contact_experiment_1'
                 
         if not(os.path.exists(filename)):
             print("Creating Save File ...")
@@ -259,6 +230,16 @@ class TrainingMonitor:
         savefile = open(filename, 'wb')
         pickle.dump(list_of_dict, savefile)
         savefile.close()
+
+    def is_equal_arr(self, arr1, arr2):
+        l1 = arr1.shape[0]
+        l2 = arr2.shape[0]
+        if not(l1 == l2):
+            return False
+        for k in range(l1):
+            if not(arr1[k] == arr2[k]):
+                return False
+        return True
 
 
 

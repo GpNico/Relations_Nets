@@ -22,7 +22,7 @@ datasets:
             warmup_steps: 1000
             decay_rate: 0.5
             decay_steps: 50000
-            num_epochs: 500
+            num_epochs: 40
             load_parameters: 0
             num_slots: 4
             num_blocks: 5
@@ -33,7 +33,7 @@ datasets:
         prediction:
             all_carac:
                 dim_points: 19
-                checkpoint_file: ./checkpoints/multi_run_multi_sprites_supervised_all_carac.ckpt
+                checkpoint_file: ./checkpoints/multi_sprites_supervised_all_carac.ckpt
                 filepath: ./data/multi_dsprites_all_carac.npz
                 get_ground_truth:
                     filepath: src/preprocess.py
@@ -41,7 +41,7 @@ datasets:
                     
             rela_base:
                 dim_points: 19
-                dim_rela: 3
+                dim_rela: 4
                 obj_class_checkpoint_file: ./checkpoints/saved/slot_multi_sprites_supervised_all_carac.ckpt
                 load_obj_class_parameters: 1 
                 checkpoint_file: ./checkpoints/multi_sprites_supervised_rela_base.ckpt
@@ -53,7 +53,7 @@ datasets:
             rela_contact:
                 dim_points: 19
                 dim_rela: 8
-                obj_class_checkpoint_file: ./checkpoints/saved/slot_multi_sprites_supervised_all_carac.ckpt
+                obj_class_checkpoint_file: ./checkpoints/multi_sprites_supervised_all_carac.ckpt
                 load_obj_class_parameters: 1 
                 checkpoint_file: ./checkpoints/multi_sprites_supervised_rela_contact.ckpt
                 filepath: ./data/multi_dsprites_rela_contact.npz
