@@ -294,8 +294,13 @@ class MultiObjectDataLoader(DataLoader):
                 if trailing_dims[k] is None:
                     continue
 
-                size = [max_len[k]] + list(trailing_dims[k])
-                batch[i][1][k] = pad(batch[i][1][k], size)
+                
+                if k == 'relation':
+                    size = [max_len[k], max_len[k]] + list(trailing_dims[k])[1:]
+                    batch[i][1][k] = MultiObjectDataLoader._pad_tensor_relation(batch[i][1][k], size, value = 0.)
+                else:
+                    size = [max_len[k]] + list(trailing_dims[k])
+                    batch[i][1][k] = pad(batch[i][1][k], size)
 
         return default_collate(batch)
     
@@ -312,5 +317,20 @@ class MultiObjectDataLoader(DataLoader):
         out.fill_(value)
         if input_size > 0:  # only if at least one element in the sequence
             out[:input_size] = x.float()
+        return out
+
+    @staticmethod
+    def _pad_tensor_relation(x, size, value=None):
+        assert isinstance(x, torch.Tensor)
+        input_size = x.shape[:2]
+        if value is None:
+            value = float('nan')
+
+        # Copy input tensor into a tensor filled with specified value
+        # Convert everything to float, not ideal but it's robust
+        out = torch.zeros(*size, dtype=torch.float)
+        out.fill_(value)
+        #if input_size > 0:  # only if at least one element in the sequence
+        out[:input_size[0], :input_size[1],:] = x.float()
         return out
 
