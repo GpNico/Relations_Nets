@@ -484,7 +484,7 @@ class RelationsPredictor(nn.Module):
         self.alpha = 0.
         self.cap_alpha = 0.6
         self.step = 0
-        self.N_alpha = 10000
+        self.N_alpha = 15000
         self.epsilon_alpha = 10**(-4)
         
         if object_classifier == 'monet':

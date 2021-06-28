@@ -258,6 +258,20 @@ def color_name(arr):
         elif y == 0 and z == 255:
             return 'blue'
 
+def update_dict(dict1, dict2):
+    if len(dict1) == 0:
+        dict1 = {k:v for k, v in dict2.items()}
+    else:
+        for k in list(dict1.keys()):
+            if torch.is_tensor(dict2[k]): 
+                dict1[k] = torch.cat((dict1[k], dict2[k]), dim = 0)
+            elif type(dict2[k]) == list:
+                dict1[k] += dict2[k]
+            else:
+                print(type(dict2[k]))
+    return dict1
+
+
 
 def training_loop_validation(model, conf, global_step, epoch, running_loss, vis, valoader, get_ground_truth, pred, training_monitor, dataset, optimizer):
     if global_step % conf['params']['vis_every'] == 0:
@@ -275,11 +289,15 @@ def training_loop_validation(model, conf, global_step, epoch, running_loss, vis,
 
             model.eval()
 
-            images, labels = iter(valoader).next()
-            labels = get_ground_truth(labels, conf, pred)
-            dict = model(images.cuda())
-            output = dict['outputs_slot']
+            batch_multiplier = 4
+            dict, labels = {}, {}
+            for k in range(batch_multiplier):
+                images, labels_raw = iter(valoader).next()
+                labels = update_dict(labels, get_ground_truth(labels_raw, conf, pred))
+                dict = update_dict(dict, model(images.cuda()))
 
+            output = dict['outputs_slot']
+            
             metrics_dict = training_monitor.get_carac_precision(output, labels['carac_labels'])
             carac_names = ['color', 'shape', 'size']
             for k in range(len(metrics_dict['carac_precision'])):
