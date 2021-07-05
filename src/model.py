@@ -474,7 +474,7 @@ class SlotAttentionClassifier(nn.Module):
 
 
 class RelationsPredictor(nn.Module):
-    def __init__(self, conf, height, width, dim_points, dim_rela, object_classifier = 'slot_att', load_params = None):
+    def __init__(self, conf, height, width, dim_points, dim_rela, object_classifier = 'slot_att', load_params = None, args = None):
         super().__init__()
         
         self.conf = conf
@@ -484,7 +484,7 @@ class RelationsPredictor(nn.Module):
         self.alpha = 0.
         self.cap_alpha = 0.6
         self.step = 0
-        self.N_alpha = 15000
+        self.N_alpha = 0
         self.epsilon_alpha = 10**(-4)
         
         if object_classifier == 'monet':
@@ -494,7 +494,8 @@ class RelationsPredictor(nn.Module):
 
         if load_params['load_obj_class_parameters']:
             print("Loading Checkpoint for Object Classifier ... ")
-            obj_class_state_dict = load_params['obj_class_checkpoint_file']
+            obj_class_state_dict = load_params['obj_class_checkpoint_file'][:-5] + args.file_name + '.ckpt'
+            print('Weights : ', obj_class_state_dict )
             self.obj_class.load_state_dict(torch.load(obj_class_state_dict))
 
             self.N_alpha = 0 #Training directly on relations

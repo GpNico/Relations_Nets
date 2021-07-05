@@ -13,11 +13,12 @@ from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 
 class TrainingMonitor:
 
-    def __init__(self, pred, dataset = 'clevr'):
+    def __init__(self, pred, dataset = 'clevr', file_name = None):
         
         self.dataset = dataset
         self.pred = pred
         self.sigmas = None
+        self.file_name = file_name
 
         self.rela_precision_list = []
         self.rela_recall_list = []
@@ -211,7 +212,7 @@ class TrainingMonitor:
                      'rela_f1': self.rela_f1_list}
 
         #Dump
-        filename = 'contact_experiment_1'
+        filename = 'pickle/six_times_ten_exp/contact_experiment' + self.file_name
                 
         if not(os.path.exists(filename)):
             print("Creating Save File ...")

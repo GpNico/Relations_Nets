@@ -88,7 +88,7 @@ def supervised_experiment(args, vis):
                                          config['prediction'][args.prediction]['dim_points'], 
                                          config['prediction'][args.prediction]['dim_rela'], 
                                          object_classifier = args.model,
-                                         load_params = config['prediction'][args.prediction]).cuda()
+                                         load_params = config['prediction'][args.prediction], args = args).cuda()
         
     else:
         print("Not Predicting Relations ...")
@@ -176,7 +176,7 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
                                               conf['prediction'][pred]['get_ground_truth']['fct'])
 
 
-    training_monitor = TrainingMonitor(pred, dataset)
+    training_monitor = TrainingMonitor(pred, dataset, file_name)
 
 
     base_learning_rate = conf['params']['learning_rate']
@@ -217,7 +217,7 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
             
             global_step += 1
                 
-        torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'][:-5] + file_name + '.ckpt')
+        torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'])#[:-5] + file_name + '.ckpt')
 
 
     if save_data:

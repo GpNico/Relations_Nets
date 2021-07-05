@@ -44,11 +44,18 @@ if __name__ == '__main__':
                         default=5,
                         dest='num_run',
                         help='number of run to execute !')
+
+    parser.add_argument("-f",
+                        "--file_name",
+                        type=str,
+                        default='',
+                        dest='file_name',
+                        help="name of the net weights save.")
     
     args = parser.parse_args()
 
     for run in tqdm.tqdm(range(args.num_run)):
-        os.system(f'python main.py -c {args.config} -d {args.dataset} -p {args.prediction} -m {args.model} -s')
+        os.system(f'python main.py -c {args.config} -d {args.dataset} -p {args.prediction} -m {args.model} -f {args.file_name} -s')
         
 
     

@@ -285,7 +285,7 @@ def training_loop_validation(model, conf, global_step, epoch, running_loss, vis,
         except:
             pass
 
-        if global_step % 500 == 0:
+        if global_step % 250 == 0:
 
             model.eval()
 
