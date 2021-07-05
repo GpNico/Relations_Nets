@@ -106,7 +106,7 @@ def supervised_experiment(args, vis):
     
     print("Start Training")
     #Run Training
-    run_training_supervised(model_net, config, args.dataset, args.prediction, trainloader, valoader, vis, args.save_data)
+    run_training_supervised(model_net, config, args.dataset, args.prediction, trainloader, valoader, vis, args.save_data, args.file_name)
     
     
     
@@ -163,7 +163,7 @@ def run_training_unsupervised(monet, conf, trainloader, vis):
     print('training done')
     
     
-def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, vis, save_data):
+def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, vis, save_data, file_name):
     if conf['params']['load_parameters'] and os.path.isfile(conf['prediction'][pred]['checkpoint_file']):
         model.load_state_dict(torch.load(conf['prediction'][pred]['checkpoint_file']))
         print('Restored parameters from', conf['prediction'][pred]['checkpoint_file'])
@@ -217,7 +217,7 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
             
             global_step += 1
                 
-        torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'])
+        torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'][:-5] + file_name + '.ckpt')
 
 
     if save_data:

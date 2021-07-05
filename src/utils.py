@@ -285,11 +285,11 @@ def training_loop_validation(model, conf, global_step, epoch, running_loss, vis,
         except:
             pass
 
-        if global_step % 250 == 0:
+        if global_step % 500 == 0:
 
             model.eval()
 
-            batch_multiplier = 4
+            batch_multiplier = 8
             dict, labels = {}, {}
             for k in range(batch_multiplier):
                 images, labels_raw = iter(valoader).next()
@@ -308,9 +308,9 @@ def training_loop_validation(model, conf, global_step, epoch, running_loss, vis,
                 except:
                     pass
                         
-            print('Carac Precision : shape %.3f ; size %.3f ; color %.3f' % (metrics_dict['carac_precision'][0], metrics_dict['carac_precision'][1], metrics_dict['carac_precision'][2]))
-            print('Carac Recall : shape %.3f ; size %.3f ; color %.3f' % (metrics_dict['carac_recall'][0], metrics_dict['carac_recall'][1], metrics_dict['carac_recall'][2]))
-            print('Carac F1 : shape %.3f ; size %.3f ; color %.3f' % (metrics_dict['carac_f1'][0], metrics_dict['carac_f1'][1], metrics_dict['carac_f1'][2]))
+            print('Carac Precision : color %.3f ; shape %.3f ; size %.3f' % (metrics_dict['carac_precision'][0], metrics_dict['carac_precision'][1], metrics_dict['carac_precision'][2]))
+            print('Carac Recall : color %.3f ; shape %.3f ; size %.3f' % (metrics_dict['carac_recall'][0], metrics_dict['carac_recall'][1], metrics_dict['carac_recall'][2]))
+            print('Carac F1 : color %.3f ; shape %.3f ; size %.3f' % (metrics_dict['carac_f1'][0], metrics_dict['carac_f1'][1], metrics_dict['carac_f1'][2]))
 
             if 'rela' in pred:
                 metric_rela = training_monitor.get_rela_precision(dict, labels['rela_labels'])

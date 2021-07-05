@@ -58,6 +58,14 @@ if __name__ == '__main__':
                         "--save_data", 
                         help="whether or not we save the training data",
                         action="store_true")
+
+    parser.add_argument("-f",
+                        "--file_name",
+                        type=str,
+                        default='',
+                        dest='file_name',
+                        help="name of the net weights save.")
+
     
     args = parser.parse_args()
     
