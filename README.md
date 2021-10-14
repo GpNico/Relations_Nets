@@ -28,7 +28,7 @@ Then unzip it and place it in the `data` folder :
 unzip -q CLEVR_v1.0.zip
 ```
 
-### Multi-dSprites
+### Multi-dSprite
 
 To be completed
 
@@ -45,7 +45,7 @@ python main.py
 
 ## Supervised/Unsupervised
 
-To run a unsupervised experiment :
+To run an unsupervised experiment :
 ```
 python main.py -c unsupervised.yml
 ```
