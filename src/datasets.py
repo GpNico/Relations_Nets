@@ -178,6 +178,89 @@ class Clevr(Dataset):
             label[k] = torch.as_tensor(t)
         
         return img, label
+
+
+class ClevrRela(Dataset):
+    def __init__(self, directory, train=True, transform=None):
+        self.images_path = directory + 'images/'
+        self.filenames = os.listdir(self.images_path)
+        
+        json_path = directory + 'CLEVR_scenes.json'
+        with open(json_path) as json_file:
+            data = json.load(json_file)
+        self.labels = data['scenes']
+        
+        self.n = len(self.filenames)
+        self.transform = transform
+
+    def __len__(self):
+        return self.n
+    
+    def _name2idx(self, key, value):
+        if key == 'shape':
+            if value == 'cube':
+                return 0
+            elif value == 'cylinder':
+                return 1
+            elif value == 'sphere':
+                return 2
+        elif key == 'size':
+            if value == 'small':
+                return 0
+            elif value == 'large':
+                return 1
+        elif key == 'material':
+            if value == 'metal':
+                return 0
+            elif value == 'rubber':
+                return 1
+        elif key == 'color':
+            if value == 'red':
+                return 0
+            elif value == 'blue':
+                return 1
+            elif value == 'purple':
+                return 2
+            elif value == 'gray':
+                return 3
+            elif value == 'cyan':
+                return 4
+            elif value == 'brown':
+                return 5
+            elif value == 'yellow':
+                return 6
+            elif value == 'green':
+                return 7
+        elif key == '3d_coords':
+            return (np.array(value) + 3)/6
+        else:
+            return value
+
+    def __getitem__(self, idx):
+        #Image
+        imgpath = os.path.join(self.images_path, self.filenames[idx])
+        img = Image.open(imgpath)
+        if self.transform is not None:
+            img = self.transform(img).float()
+            
+        #Label
+        image_idx = self.labels[idx]['image_index']
+        assert image_idx == idx
+        
+        objects = self.labels[idx]['objects']
+        num_objects = len(objects)
+        assert num_objects != 0
+        keys = objects[0].keys()
+        label = {k:[] for k in keys}
+        for i in range(num_objects):
+            for k in keys:
+                label[k].append(self._name2idx(k, objects[i][k]))
+        for k in keys:
+            t = label[k]
+            label[k] = torch.as_tensor(t)
+        label['relation'] = torch.as_tensor(self.labels[idx]['relationships'])
+
+        return img, label
         
         
 ########################################################################

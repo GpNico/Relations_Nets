@@ -273,7 +273,7 @@ def update_dict(dict1, dict2):
 
 
 
-def training_loop_validation(model, conf, global_step, epoch, running_loss, vis, valoader, get_ground_truth, pred, training_monitor, dataset, optimizer):
+def training_loop_validation(model, conf, global_step, epoch, running_loss, vis, valoader, get_ground_truth, pred, training_monitor, type, dataset, optimizer):
     if global_step % conf['params']['vis_every'] == 0:
 
 
@@ -293,7 +293,7 @@ def training_loop_validation(model, conf, global_step, epoch, running_loss, vis,
             dict, labels = {}, {}
             for k in range(batch_multiplier):
                 images, labels_raw = iter(valoader).next()
-                labels = update_dict(labels, get_ground_truth(labels_raw, conf, pred))
+                labels = update_dict(labels, get_ground_truth(labels_raw, conf, pred, dataset))
                 dict = update_dict(dict, model(images.cuda()))
 
             output = dict['outputs_slot']
@@ -326,7 +326,7 @@ def training_loop_validation(model, conf, global_step, epoch, running_loss, vis,
                             
                 print('alpha : %.3f' % (model.alpha))
 
-            ap = [average_precision(output.detach().cpu().numpy(), labels['carac_labels'].detach().cpu().numpy(), d, dataset) for d in [-1., 1., 0.5, 0.25, 0.125] ]
+            ap = [average_precision(output.detach().cpu().numpy(), labels['carac_labels'].detach().cpu().numpy(), d, type) for d in [-1., 1., 0.5, 0.25, 0.125] ]
                 
             try:
                 vis.plotline('AP', 'inf', 'Average Precision', global_step, ap[0] )

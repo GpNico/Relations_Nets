@@ -55,7 +55,7 @@ def supervised_experiment(args, vis):
     print("Reading Config File ...")
     #Get config file
     with open(args.config) as config_file:
-        config = yaml.safe_load(config_file)['datasets'][args.dataset]
+        config = yaml.safe_load(config_file)['datasets'][args.type]
     
     # Get Objects and Functions
     ObjectDataset = utils.import_from_path(config['objectdataset']['filepath'], config['objectdataset']['class'])
@@ -69,9 +69,9 @@ def supervised_experiment(args, vis):
     
     print("Loading Data ...")
     #Create DataLoader
-    trainset = ObjectDataset(config['prediction'][args.prediction]['filepath'], train=True, transform= transform)
+    trainset = ObjectDataset(config['prediction'][args.prediction][args.dataset]['filepath'], train=True, transform= transform)
     
-    valset = ObjectDataset(config['prediction'][args.prediction]['filepath'], train=False, transform= transform)
+    valset = ObjectDataset(config['prediction'][args.prediction][args.dataset]['filepath'], train=False, transform= transform)
     
     trainloader = DataLoader(trainset, batch_size=config['params']['batch_size'], shuffle=True, num_workers=0)
     
@@ -79,16 +79,16 @@ def supervised_experiment(args, vis):
     
     #Create Model
     if 'rela' in args.prediction:
-        dim_rela = config['prediction'][args.prediction]['dim_rela']
+        dim_rela = config['prediction'][args.prediction][args.dataset]['dim_rela']
         print("Predicting Relations ... ")
         
         model_net = model.RelationsPredictor(config['params'],
                                          config['params']['height'],
                                          config['params']['width'],
-                                         config['prediction'][args.prediction]['dim_points'], 
-                                         config['prediction'][args.prediction]['dim_rela'], 
+                                         config['prediction'][args.prediction][args.dataset]['dim_points'], 
+                                         config['prediction'][args.prediction][args.dataset]['dim_rela'], 
                                          object_classifier = args.model,
-                                         load_params = config['prediction'][args.prediction], args = args).cuda()
+                                         load_params = config['prediction'][args.prediction][args.dataset], args = args).cuda()
         
     else:
         print("Not Predicting Relations ...")
@@ -96,17 +96,17 @@ def supervised_experiment(args, vis):
         if args.model == 'monet':
             model_net = model.MonetClassifier(config['params'], config['params']['height'],
                                               config['params']['width'],
-                                              config['prediction'][args.prediction]['dim_points']).cuda()
+                                              config['prediction'][args.prediction][args.dataset]['dim_points']).cuda()
         elif args.model == 'slot_att':
             model_net = model.SlotAttentionClassifier(config['params'], config['params']['height'],
                                                       config['params']['width'],
-                                                      config['prediction'][args.prediction]['dim_points']).cuda()
+                                                      config['prediction'][args.prediction][args.dataset]['dim_points']).cuda()
         else:
             raise Exception("Error in the model name. Make sure it is in {monet, slot_att}.")
     
     print("Start Training")
     #Run Training
-    run_training_supervised(model_net, config, args.dataset, args.prediction, trainloader, valoader, vis, args.save_data, args.file_name)
+    run_training_supervised(model_net, config, args.type, args.dataset, args.prediction, trainloader, valoader, vis, args.save_data, args.file_name, args.epochs)
     
     
     
@@ -163,20 +163,20 @@ def run_training_unsupervised(monet, conf, trainloader, vis):
     print('training done')
     
     
-def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, vis, save_data, file_name):
-    if conf['params']['load_parameters'] and os.path.isfile(conf['prediction'][pred]['checkpoint_file']):
-        model.load_state_dict(torch.load(conf['prediction'][pred]['checkpoint_file']))
-        print('Restored parameters from', conf['prediction'][pred]['checkpoint_file'])
+def run_training_supervised(model, conf, type, dataset, pred, trainloader, valoader, vis, save_data, file_name, N_epochs):
+    if conf['params']['load_parameters'] and os.path.isfile(conf['prediction'][pred][dataset]['checkpoint_file']):
+        model.load_state_dict(torch.load(conf['prediction'][pred][dataset]['checkpoint_file']))
+        print('Restored parameters from', conf['prediction'][pred][dataset]['checkpoint_file'])
     else:
         for name, w in model.named_parameters():
             continue
         print('Initialized parameters')
                                              
-    get_ground_truth = utils.import_from_path(conf['prediction'][pred]['get_ground_truth']['filepath'],
-                                              conf['prediction'][pred]['get_ground_truth']['fct'])
+    get_ground_truth = utils.import_from_path(conf['prediction'][pred][dataset]['get_ground_truth']['filepath'],
+                                              conf['prediction'][pred][dataset]['get_ground_truth']['fct'])
 
 
-    training_monitor = TrainingMonitor(pred, dataset, file_name)
+    training_monitor = TrainingMonitor(pred, type, file_name)
 
 
     base_learning_rate = conf['params']['learning_rate']
@@ -197,11 +197,11 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
     scheduler = optim.lr_scheduler.LambdaLR(optimizer, learning_rate_scheduler)
     criterion = utils.hungarian_huber_loss
 
-    for epoch in range(conf['params']['num_epochs']):
+    for epoch in range(N_epochs):
         running_loss = 0.0
         for i, data in enumerate(trainloader):
             images, labels = data
-            images, labels = images.cuda(), get_ground_truth(labels, conf, pred)
+            images, labels = images.cuda(), get_ground_truth(labels, conf, pred, dataset)
 
             optimizer.zero_grad()
             dict, loss = model.get_loss(images, labels, criterion)
@@ -212,12 +212,12 @@ def run_training_supervised(model, conf, dataset, pred, trainloader, valoader, v
             scheduler.step()
 
             with torch.no_grad():
-                utils.training_loop_validation(model, conf, global_step, epoch, running_loss, vis, valoader, get_ground_truth, pred, training_monitor, dataset, optimizer)
+                utils.training_loop_validation(model, conf, global_step, epoch, running_loss, vis, valoader, get_ground_truth, pred, training_monitor, type, dataset, optimizer)
 
             
             global_step += 1
                 
-        torch.save(model.state_dict(), conf['prediction'][pred]['checkpoint_file'])#[:-5] + file_name + '.ckpt')
+        torch.save(model.state_dict(), conf['prediction'][pred][dataset]['checkpoint_file'][:-5] + file_name + '.ckpt')
 
 
     if save_data:

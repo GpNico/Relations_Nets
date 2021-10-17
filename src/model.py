@@ -480,11 +480,17 @@ class RelationsPredictor(nn.Module):
         self.conf = conf
 
         self.sparse_loss = True
-        
-        self.alpha = 0.
-        self.cap_alpha = 0.6
+
+        self.cap_alpha = 0.5
         self.step = 0
-        self.N_alpha = 0
+        
+        if args.warmup:
+            self.alpha = 0.
+            self.N_alpha = args.warmup
+        else:
+            self.alpha = self.cap_alpha
+            self.N_alpha = 0
+        
         self.epsilon_alpha = 10**(-4)
         
         if object_classifier == 'monet':

@@ -9,7 +9,7 @@ import numpy as np
 import src.utils as utils
     
     
-def ggt_multi_sprite_all_carac(labels, conf, pred):
+def ggt_multi_sprite_all_carac(labels, conf, pred, dataset):
 
     carac_shape = labels['shape']
     carac_scale = labels['scale']
@@ -18,7 +18,7 @@ def ggt_multi_sprite_all_carac(labels, conf, pred):
 
     batch_size, max_objs = carac_shape.shape
     
-    ground_truth = torch.zeros(batch_size, conf['params']['num_slots'], conf['prediction'][pred]['dim_points'])
+    ground_truth = torch.zeros(batch_size, conf['params']['num_slots'], conf['prediction'][pred][dataset]['dim_points'])
     
     for k in range(batch_size):
         for l in range(max_objs):
@@ -68,7 +68,7 @@ def ggt_multi_sprite_all_carac(labels, conf, pred):
     
     return {'carac_labels': ground_truth.cuda()}
 
-def ggt_multi_sprite_equal_carac(labels, conf, pred):
+def ggt_multi_sprite_equal_carac(labels, conf, pred, dataset):
 
     carac_shape = labels['shape']
     carac_scale = labels['scale']
@@ -77,7 +77,7 @@ def ggt_multi_sprite_equal_carac(labels, conf, pred):
 
     batch_size, max_objs = carac_shape.shape
     
-    ground_truth = torch.zeros(batch_size, conf['params']['num_slots'], conf['prediction'][pred]['dim_points'])
+    ground_truth = torch.zeros(batch_size, conf['params']['num_slots'], conf['prediction'][pred][dataset]['dim_points'])
     
     for k in range(batch_size):
         for l in range(max_objs):
@@ -126,7 +126,7 @@ def ggt_multi_sprite_equal_carac(labels, conf, pred):
     return {'carac_labels': ground_truth.cuda()}
     
     
-def ggt_clevr_all_carac(labels, conf, pred):
+def ggt_clevr_all_carac(labels, conf, pred, dataset):
 
     carac_shape = labels['shape']
     carac_scale = labels['size']
@@ -136,7 +136,7 @@ def ggt_clevr_all_carac(labels, conf, pred):
 
     batch_size, max_objs = carac_shape.shape
     
-    ground_truth = torch.zeros(batch_size, conf['params']['num_slots'], conf['prediction'][pred]['dim_points'])
+    ground_truth = torch.zeros(batch_size, conf['params']['num_slots'], conf['prediction'][pred][dataset]['dim_points'])
     
     for k in range(batch_size):
         for l in range(max_objs):
@@ -189,15 +189,15 @@ def ggt_clevr_all_carac(labels, conf, pred):
     return {'carac_labels': ground_truth.cuda()}
     
     
-def gtt_multi_sprite_rela_base(labels, conf, pred):
+def gtt_multi_sprite_rela_base(labels, conf, pred, dataset):
     
-    all_carac_labels = ggt_multi_sprite_all_carac(labels, conf, pred)['carac_labels']
+    all_carac_labels = ggt_multi_sprite_all_carac(labels, conf, pred, dataset)['carac_labels']
     
     rela_label = labels['relation']
 
     Y_full = rela_label
     
-    num_slots, dim_rela = conf['params']['num_slots'], conf['prediction'][pred]['dim_rela']
+    num_slots, dim_rela = conf['params']['num_slots'], conf['prediction'][pred][dataset]['dim_rela']
     
     batch_size, N, _, _ = rela_label.shape
     
@@ -230,15 +230,15 @@ def gtt_multi_sprite_rela_base(labels, conf, pred):
     return dict_labels
 
 
-def gtt_multi_sprite_rela_contact(labels, conf, pred):
+def gtt_multi_sprite_rela_contact(labels, conf, pred, dataset):
     
-    all_carac_labels = ggt_multi_sprite_all_carac(labels, conf, pred)['carac_labels']
+    all_carac_labels = ggt_multi_sprite_all_carac(labels, conf, pred, dataset)['carac_labels']
     
     rela_label = labels['relation']
 
     Y_full = rela_label
     
-    num_slots, dim_rela = conf['params']['num_slots'], conf['prediction'][pred]['dim_rela']
+    num_slots, dim_rela = conf['params']['num_slots'], conf['prediction'][pred][dataset]['dim_rela']
     
     batch_size = rela_label.shape[0]
 
@@ -269,6 +269,30 @@ def gtt_multi_sprite_rela_contact(labels, conf, pred):
     #    Y_full.append(rela_to_Y(rela_label[k], num_slots =  num_slots, dim_rela = dim_rela))
     #Y_full = torch.stack(Y_full)
     ##Y_full shape = [batch_size, n_slots, n_slots, dim_rela]
+
+    pad1 = torch.zeros(batch_size, num_slots - N, N, dim_rela)
+    pad2 = torch.zeros(batch_size, num_slots, num_slots - N, dim_rela)
+
+    Y_full = torch.cat((Y_full, pad1), dim=1)
+    Y_full = torch.cat((Y_full, pad2), dim=2)
+   
+    dict_labels = {'carac_labels': all_carac_labels.cuda(), 'rela_labels': Y_full.cuda()}
+    
+    return dict_labels
+
+def gtt_clevr_rela_contact(labels, conf, pred, dataset):
+    
+    all_carac_labels = ggt_clevr_all_carac(labels, conf, pred, dataset)['carac_labels']
+    
+    rela_label = labels['relation']
+
+    Y_full = rela_label
+    
+    num_slots, dim_rela = conf['params']['num_slots'], conf['prediction'][pred][dataset]['dim_rela']
+    
+    batch_size = rela_label.shape[0]
+
+    batch_size, N, _, _ = rela_label.shape
 
     pad1 = torch.zeros(batch_size, num_slots - N, N, dim_rela)
     pad2 = torch.zeros(batch_size, num_slots, num_slots - N, dim_rela)

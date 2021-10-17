@@ -13,9 +13,9 @@ from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 
 class TrainingMonitor:
 
-    def __init__(self, pred, dataset = 'clevr', file_name = None):
+    def __init__(self, pred, type = 'clevr', file_name = None):
         
-        self.dataset = dataset
+        self.type = type
         self.pred = pred
         self.sigmas = None
         self.file_name = file_name
@@ -75,8 +75,8 @@ class TrainingMonitor:
 
                 if targets[k][l].max() > 0.: #There is an object in this slot
 
-                    (_, pred_object_size, pred_material, pred_shape, pred_color, _) = self.process_targets(preds[k][sigmas[k][l]], self.dataset)
-                    (_, target_object_size, target_material, target_shape, target_color, _) = self.process_targets(targets[k][l], self.dataset)
+                    (_, pred_object_size, pred_material, pred_shape, pred_color, _) = self.process_targets(preds[k][sigmas[k][l]], self.type)
+                    (_, target_object_size, target_material, target_shape, target_color, _) = self.process_targets(targets[k][l], self.type)
 
                     #if (pred_object_size, pred_material, pred_shape, pred_color) == (target_object_size, target_material, target_shape, target_color):
 
@@ -92,9 +92,9 @@ class TrainingMonitor:
         cm_shape = confusion_matrix(shape_true, shape_pred)
         cm_size = confusion_matrix(size_true, size_pred)
 
-        color_precision, color_recall, color_f1, _ = precision_recall_fscore_support(color_true, color_pred, average='macro')
-        shape_precision, shape_recall, shape_f1, _ = precision_recall_fscore_support(shape_true, shape_pred, average='macro')
-        size_precision, size_recall, size_f1, _ = precision_recall_fscore_support(size_true, size_pred, average='macro')
+        color_precision, color_recall, color_f1, _ = precision_recall_fscore_support(color_true, color_pred, average='macro', zero_division = 0)
+        shape_precision, shape_recall, shape_f1, _ = precision_recall_fscore_support(shape_true, shape_pred, average='macro', zero_division = 0)
+        size_precision, size_recall, size_f1, _ = precision_recall_fscore_support(size_true, size_pred, average='macro', zero_division = 0)
 
         metric = {'confusion_matrix': (cm_color, cm_shape, cm_size),
                   'carac_precision': (color_precision, shape_precision, size_precision),
@@ -212,7 +212,7 @@ class TrainingMonitor:
                      'rela_f1': self.rela_f1_list}
 
         #Dump
-        filename = 'pickle/six_times_ten_exp/contact_experiment' + self.file_name
+        filename = 'pickle/trash/test' + self.file_name
                 
         if not(os.path.exists(filename)):
             print("Creating Save File ...")

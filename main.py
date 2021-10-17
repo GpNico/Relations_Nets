@@ -33,12 +33,19 @@ if __name__ == '__main__':
                         dest='config',
                         help='config you wish to load')
                         
+    parser.add_argument('-t',
+                        '--type',
+                        type=str,
+                        default='multi_sprite',
+                        dest='type',
+                        help='which type dataset to use : multi_sprite, clevr')
+
     parser.add_argument('-d',
                         '--dataset',
                         type=str,
-                        default='multi_sprite',
+                        default='rela_contact',
                         dest='dataset',
-                        help='which dataset to load : sprite, multi_sprite, clevr, multi_sprite_equal')
+                        help='which precise dataset to load : all_carac, rela_contact, R_L_CT_CB, T_B_CR_CL')
                         
     parser.add_argument('-p',
                         '--prediction',
@@ -46,6 +53,20 @@ if __name__ == '__main__':
                         default='all_carac',
                         dest='prediction',
                         help='which dataset to make (only in supervised training)')
+
+    parser.add_argument('-w',
+                        '--warmup',
+                        type=int,
+                        default=0,
+                        dest='warmup',
+                        help='Do we have a phase were we focus on learning object characteristics or do we start to learn both at the same time. If yes warmup contains the number of epoch we keep alpha = 0.')
+
+    parser.add_argument('-e',
+                        '--epochs',
+                        type=int,
+                        default=50,
+                        dest='epochs',
+                        help='Number of epochs.')
     
     parser.add_argument('-m',
                         '--model',

@@ -22,7 +22,7 @@ datasets:
             warmup_steps: 1000
             decay_rate: 0.5
             decay_steps: 50000
-            num_epochs: 20
+            num_epochs: 50
             load_parameters: 0
             num_slots: 5
             num_blocks: 5
@@ -32,12 +32,20 @@ datasets:
             
         prediction:
             all_carac:
-                dim_points: 19
-                checkpoint_file: ./checkpoints/multi_sprites_supervised_all_carac.ckpt
-                filepath: ./data/multi_dsprites_all_carac.npz
-                get_ground_truth:
-                    filepath: src/preprocess.py
-                    fct: ggt_multi_sprite_all_carac
+                all_carac:
+                    dim_points: 19
+                    checkpoint_file: ./checkpoints/same_dataset/multi_sprites_supervised_all_carac.ckpt
+                    filepath: ./data/multi_dsprites_all_carac.npz
+                    get_ground_truth:
+                        filepath: src/preprocess.py
+                        fct: ggt_multi_sprite_all_carac
+                rela_contact:
+                    dim_points: 19
+                    checkpoint_file: ./checkpoints/same_dataset/multi_sprites_supervised_all_carac.ckpt
+                    filepath: ./data/multi_dsprites_all_carac.npz
+                    get_ground_truth:
+                        filepath: src/preprocess.py
+                        fct: ggt_multi_sprite_all_carac
                     
             rela_base:
                 dim_points: 19
@@ -51,15 +59,36 @@ datasets:
                     fct: gtt_multi_sprite_rela_base
 
             rela_contact:
-                dim_points: 19
-                dim_rela: 8
-                obj_class_checkpoint_file: ./checkpoints/multi_sprites_supervised_all_carac.ckpt
-                load_obj_class_parameters: 1
-                checkpoint_file: ./checkpoints/multi_sprites_supervised_rela_contact.ckpt
-                filepath: ./data/multi_dsprites_rela_contact_new.npz
-                get_ground_truth:
-                    filepath: src/preprocess.py
-                    fct: gtt_multi_sprite_rela_contact
+                rela_contact:
+                    dim_points: 19
+                    dim_rela: 8
+                    obj_class_checkpoint_file: ./checkpoints/same_dataset/multi_sprites_supervised_all_carac.ckpt
+                    load_obj_class_parameters: 0
+                    checkpoint_file: ./checkpoints/multi_sprites_supervised_rela_contact.ckpt
+                    filepath: ./data/multi_dsprites_rela_contact.npz
+                    get_ground_truth:
+                        filepath: src/preprocess.py
+                        fct: gtt_multi_sprite_rela_contact
+                R_L_CT_CB:
+                    dim_points: 19
+                    dim_rela: 4
+                    obj_class_checkpoint_file: ./checkpoints/same_dataset/multi_sprites_supervised_all_carac.ckpt
+                    load_obj_class_parameters: 0
+                    checkpoint_file: ./checkpoints/multi_sprites_supervised_rela_contact.ckpt
+                    filepath: ./data/multi_dsprites_R_L_CT_CB.npz
+                    get_ground_truth:
+                        filepath: src/preprocess.py
+                        fct: gtt_multi_sprite_rela_contact
+                T_B_CR_CL:
+                    dim_points: 19
+                    dim_rela: 4
+                    obj_class_checkpoint_file: ./checkpoints/same_dataset/multi_sprites_supervised_all_carac.ckpt
+                    load_obj_class_parameters: 0
+                    checkpoint_file: ./checkpoints/multi_sprites_supervised_rela_contact.ckpt
+                    filepath: ./data/multi_dsprites_T_B_CR_CL.npz
+                    get_ground_truth:
+                        filepath: src/preprocess.py
+                        fct: gtt_multi_sprite_rela_contact
                 
               
               
@@ -69,7 +98,7 @@ datasets:
                 fct: compose_2
             objectdataset:
                 filepath: src/datasets.py
-                class: Clevr
+                class: ClevrRela
             dataloader:
                 filepath: src/datasets.py
                 class: MultiObjectDataLoader
@@ -83,7 +112,7 @@ datasets:
                 warmup_steps: 1000
                 decay_rate: 0.5
                 decay_steps: 50000
-                num_epochs: 1000
+                num_epochs: 50
                 load_parameters: 0
                 num_slots: 10
                 num_blocks: 6
@@ -94,11 +123,22 @@ datasets:
             prediction:
                 all_carac:
                     dim_points: 19
-                    checkpoint_file: ./checkpoints/slot_clevr_supervised_all_carac.ckpt
-                    filepath: ./data/CLEVR_v1.0/
+                    checkpoint_file: ./checkpoints/clevr/clevr_supervised_all_carac.ckpt
+                    filepath: ./data/CLEVR_rela/
                     get_ground_truth:
                         filepath: src/preprocess.py
                         fct: ggt_clevr_all_carac
+
+                rela_contact:
+                    dim_points: 19
+                    dim_rela: 8
+                    obj_class_checkpoint_file: ./checkpoints/clevr/clevr_supervised_all_carac.ckpt
+                    load_obj_class_parameters: 1
+                    checkpoint_file: ./checkpoints/clevr_supervised_rela_contact.ckpt
+                    filepath: ./data/CLEVR_rela/
+                    get_ground_truth:
+                        filepath: src/preprocess.py
+                        fct: gtt_clevr_rela_contact
 
     multi_sprite_equal:
         transform:
